@@ -4,11 +4,25 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-source "$REPO_DIR/lib/config.sh"
-source "$REPO_DIR/lib/db.sh"
 
-load_config
-init_db
+# Error handler for unexpected errors
+show_error() {
+    zenity --error --text="$1" --width=400 2>/dev/null || echo "ERROR: $1" >&2
+}
+
+# Source dependencies with error checking
+if ! source "$REPO_DIR/lib/config.sh" 2>/dev/null; then
+    show_error "Failed to load config.sh"
+    exit 1
+fi
+
+if ! source "$REPO_DIR/lib/db.sh" 2>/dev/null; then
+    show_error "Failed to load db.sh"
+    exit 1
+fi
+
+load_config || { show_error "Failed to load configuration"; exit 1; }
+init_db || { show_error "Failed to initialize database"; exit 1; }
 
 # Get sample utterances for a speaker
 get_speaker_samples() {
@@ -243,44 +257,55 @@ gui() {
         return 0
     fi
 
-    # Get speakers and their samples
+    # Get speakers and label each one
     local speakers=$(get_speakers "$selected_file")
-    local form_fields=()
-
-    while IFS= read -r speaker_id; do
-        if [[ -z "$speaker_id" ]]; then
-            continue
-        fi
-
-        local samples=$(get_speaker_samples "$selected_file" "$speaker_id" 2 | tr '\n' ' ')
-        local current=$(get_speaker_name "$selected_file" "$speaker_id")
-
-        form_fields+=("--field=$speaker_id\n$samples" "${current:-}")
-    done <<< "$speakers"
-
-    # Show labeling form
-    local result=$(zenity --forms \
-        --title="Label Speakers" \
-        --text="Enter names for each speaker:" \
-        --separator="|" \
-        "${form_fields[@]}")
-
-    if [[ -z "$result" ]]; then
-        return 0
+    if [[ -z "$speakers" ]]; then
+        zenity --error --text="No speakers found in transcript file."
+        return 1
     fi
 
-    # Apply labels
-    IFS='|' read -ra names <<< "$result"
-    local i=0
+    local all_labeled=true
+
     while IFS= read -r speaker_id; do
         if [[ -z "$speaker_id" ]]; then
             continue
         fi
-        if [[ -n "${names[$i]}" ]]; then
-            update_speaker_name "$selected_file" "$speaker_id" "${names[$i]}"
+
+        # Get samples and truncate each to ~80 chars, max 3 samples
+        local samples=""
+        while IFS= read -r line; do
+            if [[ -n "$line" ]]; then
+                # Truncate long lines
+                if [[ ${#line} -gt 80 ]]; then
+                    line="${line:0:77}..."
+                fi
+                samples="${samples}• ${line}\n"
+            fi
+        done < <(get_speaker_samples "$selected_file" "$speaker_id" 3)
+
+        local current=$(get_speaker_name "$selected_file" "$speaker_id")
+
+        # Show entry dialog for this speaker
+        local new_name=$(zenity --entry \
+            --title="Label Speaker: $speaker_id" \
+            --text="Sample utterances:\n${samples}\nEnter name for $speaker_id:" \
+            --entry-text="${current:-}" \
+            --width=500)
+
+        if [[ -n "$new_name" ]]; then
+            update_speaker_name "$selected_file" "$speaker_id" "$new_name" || {
+                zenity --error --text="Failed to update speaker name for $speaker_id"
+                return 1
+            }
+        else
+            all_labeled=false
         fi
-        ((i++))
     done <<< "$speakers"
+
+    if ! $all_labeled; then
+        zenity --warning --text="Not all speakers were labeled."
+        return 0
+    fi
 
     replace_speaker_ids "$selected_file"
     mark_labeled "$selected_file"

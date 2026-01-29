@@ -4,11 +4,17 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-source "$REPO_DIR/lib/config.sh"
-source "$REPO_DIR/lib/db.sh"
 
-load_config
-init_db
+# Error handler
+show_error() {
+    zenity --error --text="$1" --width=400 2>/dev/null || echo "ERROR: $1" >&2
+}
+
+source "$REPO_DIR/lib/config.sh" || { show_error "Failed to load config.sh"; exit 1; }
+source "$REPO_DIR/lib/db.sh" || { show_error "Failed to load db.sh"; exit 1; }
+
+load_config || { show_error "Failed to load configuration"; exit 1; }
+init_db || { show_error "Failed to initialize database"; exit 1; }
 
 # Check for yad (preferred) or zenity
 if command -v yad &>/dev/null; then
