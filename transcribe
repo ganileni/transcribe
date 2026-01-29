@@ -1,0 +1,170 @@
+#!/bin/bash
+# Transcribe - Meeting Transcription Application
+# Main entry point
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source config for paths
+source "$SCRIPT_DIR/lib/config.sh"
+
+VERSION="1.0.0"
+
+show_help() {
+    cat <<EOF
+Transcribe - Meeting Transcription Application v$VERSION
+
+Usage: transcribe <command> [options]
+
+Commands:
+  gui                    Launch the graphical interface
+  record [start|stop]    Control audio recording
+  transcribe <file>      Transcribe an audio file with AssemblyAI
+  label [file]           Label speakers in a transcript
+  summarise <file> <title>  Summarize a labeled transcript
+  process                Process all unprocessed recordings
+  watch                  Watch for new recordings and auto-process
+  files [list|refresh]   Manage audio files
+  config                 Edit configuration file
+  init                   Initialize config and database
+  status                 Show current status
+
+Examples:
+  transcribe gui                           # Launch GUI
+  transcribe transcribe ~/meeting.mp4      # Transcribe a file
+  transcribe label transcript.yaml         # Label speakers
+  transcribe summarise transcript.yaml "Team Meeting"
+  transcribe process                       # Process all pending files
+
+Configuration:
+  Config file: ~/.config/transcribe/config.json
+  Database:    ~/.config/transcribe/transcribe.db
+
+For more information, see: $SCRIPT_DIR/README.md
+EOF
+}
+
+show_status() {
+    load_config
+
+    echo "Transcribe Status"
+    echo "================="
+    echo ""
+    echo "Configuration:"
+    echo "  Watch directory:      $WATCH_DIR"
+    echo "  Transcripts:          $RAW_TRANSCRIPTS_DIR"
+    echo "  Summaries:            $SUMMARIES_DIR"
+    echo "  Done directory:       $DONE_DIR"
+    echo "  Auto-process:         $AUTO_PROCESS"
+    echo ""
+
+    # Check recording status
+    if [[ -f "/tmp/transcribe-recording-state" ]]; then
+        echo "Recording: ACTIVE"
+        if [[ -f "/tmp/transcribe-recording-start" ]]; then
+            local start=$(cat "/tmp/transcribe-recording-start")
+            local now=$(date +%s)
+            local duration=$((now - start))
+            printf "  Duration: %02d:%02d:%02d\n" $((duration/3600)) $((duration%3600/60)) $((duration%60))
+        fi
+    else
+        echo "Recording: Idle"
+    fi
+    echo ""
+
+    # Count files
+    source "$SCRIPT_DIR/lib/db.sh"
+    init_db
+
+    local pending=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM audio_files WHERE transcribed_at IS NULL;" 2>/dev/null || echo "0")
+    local transcribed=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM audio_files WHERE transcribed_at IS NOT NULL;" 2>/dev/null || echo "0")
+    local unlabeled=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM transcripts WHERE labeled_at IS NULL;" 2>/dev/null || echo "0")
+    local unsummarized=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM transcripts WHERE labeled_at IS NOT NULL AND summarized_at IS NULL;" 2>/dev/null || echo "0")
+
+    echo "Files:"
+    echo "  Pending transcription: $pending"
+    echo "  Transcribed:           $transcribed"
+    echo "  Unlabeled transcripts: $unlabeled"
+    echo "  Awaiting summary:      $unsummarized"
+}
+
+init_app() {
+    source "$SCRIPT_DIR/lib/db.sh"
+    init_config
+    init_db
+    echo "Initialized configuration and database."
+    echo "Config: $CONFIG_FILE"
+    echo "Database: $DB_FILE"
+}
+
+# Main command dispatch
+case "${1:-help}" in
+    gui)
+        exec "$SCRIPT_DIR/gui/main-window.sh"
+        ;;
+
+    record)
+        exec "$SCRIPT_DIR/gui/recording-pane.sh" "${2:-toggle}"
+        ;;
+
+    transcribe)
+        if [[ -z "$2" ]]; then
+            echo "Usage: transcribe transcribe <audio_file>"
+            exit 1
+        fi
+        exec "$SCRIPT_DIR/lib/transcribe-audio.sh" "$2"
+        ;;
+
+    label)
+        exec "$SCRIPT_DIR/gui/labeling-pane.sh" "${2:-}"
+        ;;
+
+    summarise|summarize)
+        if [[ -z "$2" || -z "$3" ]]; then
+            echo "Usage: transcribe summarise <transcript_file> <meeting_title>"
+            exit 1
+        fi
+        exec "$SCRIPT_DIR/lib/summarise-transcript.sh" "$2" "$3"
+        ;;
+
+    process)
+        exec "$SCRIPT_DIR/lib/process-recordings.sh"
+        ;;
+
+    watch)
+        exec "$SCRIPT_DIR/lib/watcher.sh"
+        ;;
+
+    files)
+        exec "$SCRIPT_DIR/gui/files-pane.sh" "${2:-list}"
+        ;;
+
+    config)
+        init_config
+        ${EDITOR:-${VISUAL:-nano}} "$CONFIG_FILE"
+        ;;
+
+    init)
+        init_app
+        ;;
+
+    status)
+        show_status
+        ;;
+
+    version|--version|-v)
+        echo "transcribe version $VERSION"
+        ;;
+
+    help|--help|-h)
+        show_help
+        ;;
+
+    *)
+        echo "Unknown command: $1"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

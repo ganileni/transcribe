@@ -1,0 +1,19 @@
+[Unit]
+Description=Transcribe - Watch for new recordings and auto-transcribe
+After=network.target graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/transcribe watch
+Restart=on-failure
+RestartSec=10
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=transcribe-watcher
+
+[Install]
+WantedBy=default.target
