@@ -57,6 +57,12 @@ get_speakers() {
     grep -E "^  - id:" "$transcript_file" | sed 's/.*id: "\?\([^"]*\)"\?/\1/'
 }
 
+# Get participants (speaker names) from transcript
+get_participants() {
+    local transcript_file="$1"
+    grep -A1 "^  - id:" "$transcript_file" | grep "name:" | sed 's/.*name: //' | grep -v "null" | tr -d '"' | tr '\n' ',' | sed 's/,$//'
+}
+
 # Get current speaker name
 get_speaker_name() {
     local transcript_file="$1"
@@ -312,9 +318,21 @@ gui() {
 
     zenity --info --text="Transcript labeled successfully!"
 
-    # Ask about summarization
+    # Auto-generate title from date and participants
+    local date=$(basename "$selected_file" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' || date +%Y-%m-%d)
+    local participants=$(get_participants "$selected_file" | tr ',' ' ' | xargs | tr ' ' '-')
+    local auto_title="Meeting ${date}"
+    if [[ -n "$participants" ]]; then
+        auto_title="${date} ${participants}"
+    fi
+
+    # Ask about summarization with auto-generated title
     if zenity --question --text="Generate summary now?"; then
-        local title=$(zenity --entry --title="Meeting Title" --text="Enter meeting title:")
+        local title=$(zenity --entry \
+            --title="Meeting Title" \
+            --text="Enter meeting title (or accept suggested):" \
+            --entry-text="$auto_title" \
+            --width=400)
         if [[ -n "$title" ]]; then
             (
                 "$REPO_DIR/lib/summarise-transcript.sh" "$selected_file" "$title" 2>&1
