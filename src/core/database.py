@@ -330,6 +330,36 @@ class Database:
         ).fetchone()
         return row["count"]
 
+    def get_pending_audio_files(self) -> list[AudioFile]:
+        """Get all audio files pending transcription.
+
+        Returns:
+            List of AudioFile objects that haven't been transcribed yet.
+        """
+        conn = self._get_conn()
+        rows = conn.execute(
+            """SELECT id, path, filename, added_at, transcribed_at, transcript_path
+               FROM audio_files WHERE transcribed_at IS NULL ORDER BY added_at ASC"""
+        ).fetchall()
+
+        result = []
+        for row in rows:
+            added_at = None
+            if row["added_at"]:
+                added_at = datetime.fromisoformat(row["added_at"])
+
+            result.append(
+                AudioFile(
+                    id=row["id"],
+                    path=row["path"],
+                    filename=row["filename"],
+                    added_at=added_at,
+                    transcribed_at=None,
+                    transcript_path=None,
+                )
+            )
+        return result
+
     def get_unlabeled_count(self) -> int:
         """Get count of unlabeled transcripts."""
         conn = self._get_conn()

@@ -1,10 +1,16 @@
 """Main menu screen for Transcribe TUI."""
 
+import shutil
+from pathlib import Path
+
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, Static
+from textual.worker import Worker, WorkerState
+
+from ..core.transcriber import Transcriber, TranscriptionError
 
 
 class MainMenuScreen(Screen):
@@ -161,7 +167,61 @@ class MainMenuScreen(Screen):
 
     def action_process_all(self) -> None:
         """Process all pending recordings."""
-        self.notify("Processing not yet implemented in TUI", severity="warning")
+        app = self.app
+        pending = app.db.get_pending_audio_files()
+
+        if not pending:
+            self.notify("No pending files to process", severity="information")
+            return
+
+        self.notify(f"Processing {len(pending)} file(s)...", severity="information")
+        self.run_worker(self._process_files(pending), name="process_files", exclusive=True)
+
+    async def _process_files(self, files: list) -> None:
+        """Background worker to process files."""
+        app = self.app
+        api_key = app.config.get_api_key()
+
+        if not api_key:
+            self.notify("No API key configured. Set assemblyai_api_key in config.", severity="error")
+            return
+
+        transcriber = Transcriber(api_key)
+        output_dir = app.config.raw_transcripts_dir
+        done_dir = app.config.done_dir
+        done_dir.mkdir(parents=True, exist_ok=True)
+
+        processed = 0
+        for audio in files:
+            try:
+                self.notify(f"Transcribing: {audio.filename}", severity="information")
+
+                # Transcribe and save
+                transcript_path = transcriber.transcribe_and_save(
+                    audio.path,
+                    output_dir,
+                    progress_callback=lambda msg: self.notify(msg),
+                )
+
+                # Update database
+                audio_id = app.db.get_audio_id(audio.path)
+                app.db.mark_transcribed(audio.path, str(transcript_path))
+                if audio_id:
+                    app.db.add_transcript(str(transcript_path), audio_id)
+
+                # Move original to done directory
+                shutil.move(audio.path, done_dir / audio.filename)
+
+                processed += 1
+                self.notify(f"Completed: {audio.filename}", severity="information")
+
+            except TranscriptionError as e:
+                self.notify(f"Error transcribing {audio.filename}: {e}", severity="error")
+            except Exception as e:
+                self.notify(f"Unexpected error: {e}", severity="error")
+
+        self._update_status()
+        self.notify(f"Processed {processed}/{len(files)} file(s)", severity="information")
 
     def action_edit_config(self) -> None:
         """Edit configuration."""
@@ -169,7 +229,7 @@ class MainMenuScreen(Screen):
         import os
 
         config_file = self.app.config.config_file
-        editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "nano"))
+        editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vim"))
 
         self.app.suspend()
         subprocess.run([editor, str(config_file)])
