@@ -74,13 +74,19 @@ chmod +x "$SCRIPT_DIR/lib/"*.sh
 echo "  Done"
 echo ""
 
-# Install Python dependencies
-echo "Installing Python dependencies..."
-if command -v pip3 &>/dev/null; then
+# Create virtual environment and install Python dependencies
+echo "Setting up Python environment..."
+if command -v uv &>/dev/null; then
+    echo "  Using uv to create virtual environment..."
+    uv venv "$SCRIPT_DIR/.venv"
+    uv pip install -e "$SCRIPT_DIR"
+    echo "  Python packages installed in .venv/"
+elif command -v pip3 &>/dev/null; then
+    echo "  uv not found, using pip3..."
     pip3 install --user -e "$SCRIPT_DIR" 2>/dev/null || pip3 install --user textual pyyaml requests
-    echo "  Python packages installed"
+    echo "  Python packages installed (user)"
 else
-    echo "  Warning: pip3 not found. Install Python dependencies manually:"
+    echo "  Warning: Neither uv nor pip3 found. Install Python dependencies manually:"
     echo "    pip install textual pyyaml requests"
 fi
 echo ""

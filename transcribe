@@ -6,6 +6,13 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Use virtual environment Python if available
+if [[ -x "$SCRIPT_DIR/.venv/bin/python3" ]]; then
+    PYTHON="$SCRIPT_DIR/.venv/bin/python3"
+else
+    PYTHON="python3"
+fi
+
 # Source config for paths
 source "$SCRIPT_DIR/lib/config.sh"
 
@@ -103,13 +110,13 @@ case "${1:-help}" in
     gui)
         # Launch Python TUI
         cd "$SCRIPT_DIR"
-        exec python3 -m src.app
+        exec "$PYTHON" -m src.app
         ;;
 
     record)
         # Use Python recorder module
         cd "$SCRIPT_DIR"
-        exec python3 -c "
+        exec "$PYTHON" -c "
 from src.core import Config, Recorder
 config = Config()
 recorder = Recorder(config.watch_dir)
@@ -147,7 +154,7 @@ elif cmd == 'toggle':
     label)
         # Launch TUI labeling screen directly
         cd "$SCRIPT_DIR"
-        exec python3 -m src.app
+        exec "$PYTHON" -m src.app
         ;;
 
     summarise|summarize)
@@ -169,7 +176,7 @@ elif cmd == 'toggle':
     files)
         # Use Python for file listing
         cd "$SCRIPT_DIR"
-        exec python3 -c "
+        exec "$PYTHON" -c "
 from src.core import Config, Database
 from pathlib import Path
 config = Config()

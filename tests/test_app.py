@@ -9,7 +9,6 @@ import pytest
 from src.app import TranscribeApp
 from src.screens.main_menu import MainMenuScreen
 from src.screens.files import FilesScreen
-from src.screens.recording import RecordingScreen
 from src.screens.labeling import LabelingScreen
 
 
@@ -100,8 +99,8 @@ class TestMainMenuScreen:
                             assert isinstance(app.screen, FilesScreen)
 
     @pytest.mark.asyncio
-    async def test_navigate_to_recording(self):
-        """Test navigation to recording screen."""
+    async def test_toggle_recording_key(self):
+        """Test that 'r' key toggles recording on main menu."""
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("src.app.Config") as mock_config_class:
                 mock_config = MagicMock()
@@ -123,8 +122,11 @@ class TestMainMenuScreen:
 
                         app = TranscribeApp()
                         async with app.run_test() as pilot:
+                            # 'r' on main menu toggles recording, not navigates
                             await pilot.press("r")
-                            assert isinstance(app.screen, RecordingScreen)
+                            # Should stay on main menu and toggle recording
+                            assert isinstance(app.screen, MainMenuScreen)
+                            mock_recorder.start.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_navigate_to_labeling(self):
