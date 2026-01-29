@@ -1,0 +1,186 @@
+/* Transcribe TUI Styles */
+
+Screen {
+    background: $surface;
+}
+
+/* Main Menu */
+#main-container {
+    width: 100%;
+    height: 100%;
+    padding: 1 2;
+}
+
+#recording-status {
+    width: 100%;
+    height: auto;
+    border: solid $primary;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+#recording-status.recording {
+    border: solid $error;
+}
+
+#status-label {
+    text-style: bold;
+}
+
+#status-label.recording {
+    color: $error;
+}
+
+#duration-label {
+    margin-left: 2;
+}
+
+#quick-actions {
+    width: 100%;
+    height: auto;
+    border: solid $primary;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+#quick-actions Horizontal {
+    height: auto;
+}
+
+#status-bar {
+    width: 100%;
+    height: auto;
+    border: solid $primary;
+    padding: 1 2;
+}
+
+.action-button {
+    margin: 0 1;
+}
+
+/* Files Screen */
+#files-container {
+    width: 100%;
+    height: 100%;
+    padding: 1 2;
+}
+
+#files-table {
+    width: 100%;
+    height: 1fr;
+    border: solid $primary;
+    margin-bottom: 1;
+}
+
+#files-actions {
+    width: 100%;
+    height: auto;
+    padding: 1 0;
+}
+
+/* Recording Screen */
+#recording-container {
+    width: 100%;
+    height: 100%;
+    padding: 1 2;
+    align: center middle;
+}
+
+#recording-box {
+    width: 60;
+    height: auto;
+    border: solid $primary;
+    padding: 2 4;
+}
+
+#recording-box.recording {
+    border: solid $error;
+}
+
+#rec-status {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#rec-status.recording {
+    color: $error;
+}
+
+#rec-duration {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 2;
+}
+
+#rec-buttons {
+    align: center middle;
+}
+
+#rec-buttons Button {
+    margin: 0 1;
+}
+
+/* Labeling Screen */
+#labeling-container {
+    width: 100%;
+    height: 100%;
+    padding: 1 2;
+}
+
+#transcript-list {
+    width: 100%;
+    height: 1fr;
+    border: solid $primary;
+    margin-bottom: 1;
+}
+
+#speaker-form {
+    width: 100%;
+    height: auto;
+    border: solid $primary;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+#samples-list {
+    height: auto;
+    max-height: 10;
+    margin-bottom: 1;
+}
+
+#speaker-input {
+    margin-bottom: 1;
+}
+
+#labeling-actions {
+    width: 100%;
+    height: auto;
+    padding: 1 0;
+}
+
+/* Common */
+.title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.section-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.info-text {
+    color: $text-muted;
+}
+
+/* Progress indicator */
+#progress-container {
+    width: 100%;
+    height: auto;
+    padding: 1 2;
+}
+
+LoadingIndicator {
+    height: 3;
+}

@@ -18,7 +18,7 @@ Transcribe - Meeting Transcription Application v$VERSION
 Usage: transcribe <command> [options]
 
 Commands:
-  gui                    Launch the graphical interface
+  gui                    Launch the TUI (Terminal User Interface)
   record [start|stop]    Control audio recording
   transcribe <file>      Transcribe an audio file with AssemblyAI
   label [file]           Label speakers in a transcript
@@ -31,7 +31,7 @@ Commands:
   status                 Show current status
 
 Examples:
-  transcribe gui                           # Launch GUI
+  transcribe gui                           # Launch TUI
   transcribe transcribe ~/meeting.mp4      # Transcribe a file
   transcribe label transcript.yaml         # Label speakers
   transcribe summarise transcript.yaml "Team Meeting"
@@ -101,11 +101,39 @@ init_app() {
 # Main command dispatch
 case "${1:-help}" in
     gui)
-        exec "$SCRIPT_DIR/gui/main-window.sh"
+        # Launch Python TUI
+        cd "$SCRIPT_DIR"
+        exec python3 -m src.app
         ;;
 
     record)
-        exec "$SCRIPT_DIR/gui/recording-pane.sh" "${2:-toggle}"
+        # Use Python recorder module
+        cd "$SCRIPT_DIR"
+        exec python3 -c "
+from src.core import Config, Recorder
+config = Config()
+recorder = Recorder(config.watch_dir)
+import sys
+cmd = sys.argv[1] if len(sys.argv) > 1 else 'toggle'
+if cmd == 'start':
+    f = recorder.start(print)
+    print(f'Recording: {f}')
+elif cmd == 'stop':
+    f = recorder.stop(print)
+elif cmd == 'status':
+    s = recorder.get_status()
+    if s['recording']:
+        print(f'Recording: {s[\"duration\"]}')
+        print(f'File: {s[\"file\"]}')
+    else:
+        print('Idle')
+elif cmd == 'toggle':
+    recording, f = recorder.toggle(print)
+    if recording:
+        print(f'Started: {f}')
+    else:
+        print(f'Stopped: {f}')
+" "${2:-toggle}"
         ;;
 
     transcribe)
@@ -117,7 +145,9 @@ case "${1:-help}" in
         ;;
 
     label)
-        exec "$SCRIPT_DIR/gui/labeling-pane.sh" "${2:-}"
+        # Launch TUI labeling screen directly
+        cd "$SCRIPT_DIR"
+        exec python3 -m src.app
         ;;
 
     summarise|summarize)
@@ -137,7 +167,46 @@ case "${1:-help}" in
         ;;
 
     files)
-        exec "$SCRIPT_DIR/gui/files-pane.sh" "${2:-list}"
+        # Use Python for file listing
+        cd "$SCRIPT_DIR"
+        exec python3 -c "
+from src.core import Config, Database
+from pathlib import Path
+config = Config()
+config.init()
+db = Database(config.db_file)
+db.init()
+
+import sys
+cmd = sys.argv[1] if len(sys.argv) > 1 else 'list'
+
+AUDIO_EXTENSIONS = {'mp4', 'm4a', 'mp3', 'wav', 'ogg', 'webm', 'flac'}
+
+if cmd == 'list':
+    print(f'Audio Files in: {config.watch_dir}')
+    print('=' * 50)
+    files = db.list_audio_files()
+    # Also check filesystem
+    if config.watch_dir.exists():
+        db_paths = {f.path for f in files}
+        for f in config.watch_dir.iterdir():
+            if f.is_file() and f.suffix.lower().lstrip('.') in AUDIO_EXTENSIONS:
+                if str(f) not in db_paths:
+                    print(f'o {f.name:40} pending')
+    for f in files:
+        icon = '+' if f.status == 'transcribed' else 'o'
+        print(f'{icon} {f.filename:40} {f.status}')
+elif cmd == 'refresh':
+    if config.watch_dir.exists():
+        count = 0
+        for f in config.watch_dir.iterdir():
+            if f.is_file() and f.suffix.lower().lstrip('.') in AUDIO_EXTENSIONS:
+                if not db.audio_exists(str(f)):
+                    db.add_audio(str(f))
+                    print(f'Added: {f.name}')
+                    count += 1
+        print(f'Found {count} new file(s)')
+" "${2:-list}"
         ;;
 
     config)

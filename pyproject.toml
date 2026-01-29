@@ -1,0 +1,27 @@
+[project]
+name = "transcribe"
+version = "1.0.0"
+description = "Meeting Transcription Application with TUI"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.47.0",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+transcribe-tui = "src.app:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -22,9 +22,14 @@ for cmd in ffmpeg jq curl sqlite3; do
     fi
 done
 
-# Check for zenity or yad
-if ! command -v zenity &>/dev/null && ! command -v yad &>/dev/null; then
-    MISSING_DEPS+=("zenity (or yad)")
+# Check for Python 3.11+
+if ! command -v python3 &>/dev/null; then
+    MISSING_DEPS+=("python3")
+else
+    PY_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    if [[ "$(echo "$PY_VERSION >= 3.11" | bc)" != "1" ]]; then
+        echo "  Warning: Python $PY_VERSION found, but 3.11+ recommended"
+    fi
 fi
 
 # Check for inotifywait
@@ -52,7 +57,7 @@ if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
     done
     echo ""
     echo "Install them with:"
-    echo "  sudo apt install ffmpeg jq curl sqlite3 zenity inotify-tools pulseaudio-utils"
+    echo "  sudo apt install ffmpeg jq curl sqlite3 python3 python3-pip inotify-tools pulseaudio-utils"
     echo ""
     read -p "Continue anyway? [y/N]: " continue
     if [[ ! "$continue" =~ ^[Yy] ]]; then
@@ -66,8 +71,18 @@ echo ""
 echo "Setting permissions..."
 chmod +x "$SCRIPT_DIR/transcribe"
 chmod +x "$SCRIPT_DIR/lib/"*.sh
-chmod +x "$SCRIPT_DIR/gui/"*.sh
 echo "  Done"
+echo ""
+
+# Install Python dependencies
+echo "Installing Python dependencies..."
+if command -v pip3 &>/dev/null; then
+    pip3 install --user -e "$SCRIPT_DIR" 2>/dev/null || pip3 install --user textual pyyaml requests
+    echo "  Python packages installed"
+else
+    echo "  Warning: pip3 not found. Install Python dependencies manually:"
+    echo "    pip install textual pyyaml requests"
+fi
 echo ""
 
 # Create config directory and initialize
@@ -121,7 +136,7 @@ Name=Transcribe
 Comment=Meeting Transcription Application
 Exec=$SCRIPT_DIR/transcribe gui
 Icon=audio-input-microphone
-Terminal=false
+Terminal=true
 Type=Application
 Categories=Utility;AudioVideo;
 Keywords=transcribe;meeting;audio;record;
@@ -185,7 +200,7 @@ echo ""
 echo "Installation complete!"
 echo ""
 echo "Quick start:"
-echo "  transcribe gui        # Launch GUI"
+echo "  transcribe gui        # Launch TUI (Terminal User Interface)"
 echo "  transcribe status     # Show status"
 echo "  transcribe config     # Edit configuration"
 echo "  transcribe --help     # Show all commands"
