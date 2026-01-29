@@ -1,8 +1,8 @@
 #!/bin/bash
 # SQLite database functions for transcribe
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/config.sh"
+_DB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_DB_LIB_DIR/config.sh"
 
 # Initialize the database schema
 init_db() {
