@@ -16,6 +16,7 @@ class LabelingScreen(Screen):
     """Speaker labeling screen."""
 
     BINDINGS = [
+        ("r", "refresh", "Refresh"),
         ("n", "next_speaker", "Next Speaker"),
         ("p", "prev_speaker", "Previous Speaker"),
         ("m", "more_samples", "More Samples"),
@@ -48,6 +49,7 @@ class LabelingScreen(Screen):
                 yield Input(placeholder="Enter speaker name", id="speaker-input")
 
             with Horizontal(id="labeling-actions"):
+                yield Button("[R]efresh", id="refresh-btn")
                 yield Button("[P]revious", id="prev-btn")
                 yield Button("[N]ext", id="next-btn")
                 yield Button("[M]ore Samples", id="more-btn")
@@ -62,6 +64,7 @@ class LabelingScreen(Screen):
         table.add_columns("Transcript", "Speakers", "Status")
         table.cursor_type = "row"
         self._refresh_transcripts()
+        self.set_interval(60.0, self._refresh_transcripts)
 
     def _refresh_transcripts(self) -> None:
         """Refresh the transcript list."""
@@ -176,7 +179,9 @@ class LabelingScreen(Screen):
         """Handle button presses."""
         button_id = event.button.id
 
-        if button_id == "prev-btn":
+        if button_id == "refresh-btn":
+            self.action_refresh()
+        elif button_id == "prev-btn":
             self.action_prev_speaker()
         elif button_id == "next-btn":
             self.action_next_speaker()
@@ -301,6 +306,11 @@ class LabelingScreen(Screen):
 
         except Exception as e:
             self.app.call_from_thread(self.notify, f"Summary failed: {e}", severity="error")
+
+    def action_refresh(self) -> None:
+        """Refresh the transcript list."""
+        self._refresh_transcripts()
+        self.notify("Refreshed transcript list")
 
     def action_go_back(self) -> None:
         """Go back to main menu."""
