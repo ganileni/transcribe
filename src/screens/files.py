@@ -4,6 +4,7 @@ from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
+from textual.coordinate import Coordinate
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Label, LoadingIndicator
 
@@ -101,9 +102,10 @@ class FilesScreen(Screen):
         if table.row_count == 0:
             return None
 
-        row_key = table.get_row_at(table.cursor_row)
+        cell_key = table.coordinate_to_cell_key(Coordinate(table.cursor_row, 0))
+        row_key = cell_key.row_key
         if row_key:
-            return str(table.get_row_key(table.cursor_row))
+            return str(row_key.value)
         return None
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -128,7 +130,8 @@ class FilesScreen(Screen):
             self.notify("No files to transcribe", severity="warning")
             return
 
-        row_key = table.get_row_key(table.cursor_row)
+        cell_key = table.coordinate_to_cell_key(Coordinate(table.cursor_row, 0))
+        row_key = cell_key.row_key
         if not row_key:
             return
 
@@ -183,7 +186,8 @@ class FilesScreen(Screen):
             self.notify("No files to delete", severity="warning")
             return
 
-        row_key = table.get_row_key(table.cursor_row)
+        cell_key = table.coordinate_to_cell_key(Coordinate(table.cursor_row, 0))
+        row_key = cell_key.row_key
         if not row_key:
             return
 
