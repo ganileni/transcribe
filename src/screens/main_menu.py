@@ -64,6 +64,7 @@ class MainMenuScreen(Screen):
         self._update_status()
         self._update_recording_status()
         self.set_interval(1.0, self._update_recording_status)
+        self.set_interval(5.0, self._scan_for_new_files)
 
     def _update_status(self) -> None:
         """Update status counts from database."""
@@ -107,6 +108,43 @@ class MainMenuScreen(Screen):
             duration_label.update("Duration: 00:00:00")
             start_btn.disabled = False
             stop_btn.disabled = True
+
+    def _scan_for_new_files(self) -> None:
+        """Scan watch directory for new audio files."""
+        app = self.app
+        watch_dir = app.config.watch_dir
+
+        if not watch_dir.exists():
+            return
+
+        audio_extensions = {"mp4", "m4a", "mp3", "wav", "ogg", "webm", "flac"}
+        new_files = []
+
+        for file in watch_dir.iterdir():
+            if file.is_file() and file.suffix.lower().lstrip(".") in audio_extensions:
+                if not app.db.audio_exists(str(file)):
+                    app.db.add_audio(str(file))
+                    new_files.append(file)
+
+        if new_files:
+            self._update_status()
+            self.notify(f"Found {len(new_files)} new file(s)")
+
+            # Auto-process if enabled
+            if app.config.auto_process:
+                self._auto_process_new_files()
+
+    def _auto_process_new_files(self) -> None:
+        """Auto-process pending files if configured."""
+        app = self.app
+        api_key = app.config.get_api_key()
+
+        if not api_key:
+            return  # Silent - no API key configured
+
+        pending = app.db.get_pending_audio_files()
+        if pending:
+            self.run_worker(self._process_files(pending), name="auto_process", exclusive=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
