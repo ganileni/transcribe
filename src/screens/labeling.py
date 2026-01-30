@@ -68,42 +68,45 @@ class LabelingScreen(Screen):
 
     def _refresh_transcripts(self) -> None:
         """Refresh the transcript list."""
-        table = self.query_one("#transcript-list", DataTable)
-        table.clear()
+        try:
+            table = self.query_one("#transcript-list", DataTable)
+            table.clear()
 
-        # Get unlabeled transcripts from DB
-        unlabeled = self.app.db.get_unlabeled()
-        self.transcripts = []
+            # Get unlabeled transcripts from DB
+            unlabeled = self.app.db.get_unlabeled()
+            self.transcripts = []
 
-        # Also scan filesystem
-        raw_dir = self.app.config.raw_transcripts_dir
-        if raw_dir.exists():
-            for file in raw_dir.glob("*.yaml"):
-                path_str = str(file)
-                if path_str not in unlabeled:
-                    # Check if it's unlabeled
+            # Also scan filesystem
+            raw_dir = self.app.config.raw_transcripts_dir
+            if raw_dir.exists():
+                for file in raw_dir.glob("*.yaml"):
+                    path_str = str(file)
+                    if path_str not in unlabeled:
+                        # Check if it's unlabeled
+                        try:
+                            content = file.read_text()
+                            if "labeled: false" in content:
+                                unlabeled.append(path_str)
+                        except Exception:
+                            pass
+
+            for path_str in unlabeled:
+                path = Path(path_str)
+                if path.exists():
+                    self.transcripts.append(path)
                     try:
-                        content = file.read_text()
-                        if "labeled: false" in content:
-                            unlabeled.append(path_str)
+                        transcript = TranscriptData.load(path)
+                        num_speakers = len(transcript.speakers)
+                        status = "labeled" if transcript.labeled else "unlabeled"
                     except Exception:
-                        pass
+                        num_speakers = "?"
+                        status = "error"
+                    table.add_row(path.name, f"{num_speakers} speakers", status, key=path_str)
 
-        for path_str in unlabeled:
-            path = Path(path_str)
-            if path.exists():
-                self.transcripts.append(path)
-                try:
-                    transcript = TranscriptData.load(path)
-                    num_speakers = len(transcript.speakers)
-                    status = "labeled" if transcript.labeled else "unlabeled"
-                except Exception:
-                    num_speakers = "?"
-                    status = "error"
-                table.add_row(path.name, f"{num_speakers} speakers", status, key=path_str)
-
-        if not self.transcripts:
-            table.add_row("No unlabeled transcripts", "-", "-")
+            if not self.transcripts:
+                table.add_row("No unlabeled transcripts", "-", "-")
+        except Exception as e:
+            self.notify(f"Error refreshing: {e}", severity="error")
 
     def _load_transcript(self, path: Path) -> None:
         """Load a transcript for labeling."""
@@ -310,7 +313,7 @@ class LabelingScreen(Screen):
     def action_refresh(self) -> None:
         """Refresh the transcript list."""
         self._refresh_transcripts()
-        self.notify("Refreshed transcript list")
+        self.notify(f"Found {len(self.transcripts)} unlabeled transcript(s)")
 
     def action_go_back(self) -> None:
         """Go back to main menu."""
