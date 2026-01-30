@@ -33,6 +33,15 @@ class LabelingScreen(Screen):
         self.current_speaker_index: int = 0
         self.sample_count: int = 3
 
+    def _format_duration(self, seconds: int) -> str:
+        """Format duration in seconds to MM:SS or HH:MM:SS."""
+        if seconds < 3600:
+            return f"{seconds // 60}:{seconds % 60:02d}"
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+
     def compose(self) -> ComposeResult:
         yield Header()
         with Container(id="labeling-container"):
@@ -61,7 +70,7 @@ class LabelingScreen(Screen):
     def on_mount(self) -> None:
         """Called when screen is mounted."""
         table = self.query_one("#transcript-list", DataTable)
-        table.add_columns("Transcript", "Speakers", "Status")
+        table.add_columns("Transcript", "Date", "Duration", "Speakers")
         table.cursor_type = "row"
         self._refresh_transcripts()
         self.set_interval(60.0, self._refresh_transcripts)
@@ -97,14 +106,16 @@ class LabelingScreen(Screen):
                     try:
                         transcript = TranscriptData.load(path)
                         num_speakers = len(transcript.speakers)
-                        status = "labeled" if transcript.labeled else "unlabeled"
+                        date = transcript.transcribed.strftime("%Y-%m-%d %H:%M")
+                        duration = self._format_duration(transcript.duration_seconds)
                     except Exception:
                         num_speakers = "?"
-                        status = "error"
-                    table.add_row(path.name, f"{num_speakers} speakers", status, key=path_str)
+                        date = "-"
+                        duration = "-"
+                    table.add_row(path.name, date, duration, f"{num_speakers}", key=path_str)
 
             if not self.transcripts:
-                table.add_row("No unlabeled transcripts", "-", "-")
+                table.add_row("No unlabeled transcripts", "-", "-", "-")
         except Exception as e:
             self.notify(f"Error refreshing: {e}", severity="error")
 
@@ -209,10 +220,22 @@ class LabelingScreen(Screen):
 
         self._save_current_speaker_name()
         self.current_speaker_index += 1
+
+        # Check if we've gone through all speakers
         if self.current_speaker_index >= len(self.current_transcript.speakers):
             self.current_speaker_index = 0
+            # Check if all speakers are now labeled
+            if self._all_speakers_labeled():
+                self.notify("All speakers labeled! Press [S] to save or [G] to save & summarize")
+
         self.sample_count = 3
         self._show_current_speaker()
+
+    def _all_speakers_labeled(self) -> bool:
+        """Check if all speakers have names assigned."""
+        if not self.current_transcript:
+            return False
+        return all(s.name for s in self.current_transcript.speakers)
 
     def action_prev_speaker(self) -> None:
         """Move to previous speaker."""
@@ -285,13 +308,13 @@ class LabelingScreen(Screen):
         )
 
     async def _generate_summary(self, title: str) -> None:
-        """Generate summary (runs in worker thread)."""
+        """Generate summary (runs in async worker)."""
         try:
             summarizer = Summarizer()
             output_dir = self.app.config.summaries_dir
 
             def progress(msg: str) -> None:
-                self.app.call_from_thread(self.notify, msg, severity="information")
+                self.notify(msg, severity="information")
 
             summary_path = summarizer.summarize_and_save(
                 self.current_transcript_path,
@@ -303,12 +326,11 @@ class LabelingScreen(Screen):
             # Update database
             self.app.db.mark_summarized(str(self.current_transcript_path), str(summary_path))
 
-            self.app.call_from_thread(
-                self.notify, f"Summary saved: {summary_path.name}", severity="information"
-            )
+            self.notify(f"Summary saved: {summary_path.name}", severity="information")
+            self._refresh_transcripts()
 
         except Exception as e:
-            self.app.call_from_thread(self.notify, f"Summary failed: {e}", severity="error")
+            self.notify(f"Summary failed: {e}", severity="error")
 
     def action_refresh(self) -> None:
         """Refresh the transcript list."""

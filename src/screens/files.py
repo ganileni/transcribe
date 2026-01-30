@@ -44,6 +44,7 @@ class FilesScreen(Screen):
         table.add_columns("Filename", "Status", "Added")
         table.cursor_type = "row"
         self._refresh_table()
+        self.set_interval(60.0, self._refresh_table)
 
     def _get_files(self) -> list[tuple[str, str, str, str]]:
         """Get list of audio files with status.
@@ -68,7 +69,7 @@ class FilesScreen(Screen):
                     path_str = str(file)
                     if path_str in db_files:
                         f = db_files[path_str]
-                        added = f.added_at.strftime("%H:%M") if f.added_at else "-"
+                        added = f.added_at.strftime("%Y-%m-%d %H:%M") if f.added_at else "-"
                         result.append((path_str, f.filename, f.status, added))
                         del db_files[path_str]
                     else:
@@ -77,7 +78,7 @@ class FilesScreen(Screen):
         # Add any remaining DB files (that might have been moved)
         for f in db_files.values():
             if Path(f.path).exists():
-                added = f.added_at.strftime("%H:%M") if f.added_at else "-"
+                added = f.added_at.strftime("%Y-%m-%d %H:%M") if f.added_at else "-"
                 result.append((f.path, f.filename, f.status, added))
 
         return result
