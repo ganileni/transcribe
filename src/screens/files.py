@@ -164,7 +164,7 @@ class FilesScreen(Screen):
             output_dir = self.app.config.raw_transcripts_dir
 
             def progress(msg: str) -> None:
-                self.call_from_thread(self.notify, msg, severity="information")
+                self.app.call_from_thread(self.notify, msg, severity="information")
 
             transcript_path = transcriber.transcribe_and_save(path, output_dir, progress)
 
@@ -173,11 +173,11 @@ class FilesScreen(Screen):
             audio_id = self.app.db.get_audio_id(path)
             self.app.db.add_transcript(transcript_path, audio_id)
 
-            self.call_from_thread(self.notify, f"Transcription complete: {transcript_path.name}")
-            self.call_from_thread(self._refresh_table)
+            self.app.call_from_thread(self.notify, f"Transcription complete: {transcript_path.name}")
+            self.app.call_from_thread(self._refresh_table)
 
         except Exception as e:
-            self.call_from_thread(self.notify, f"Transcription failed: {e}", severity="error")
+            self.app.call_from_thread(self.notify, f"Transcription failed: {e}", severity="error")
 
     def action_delete_selected(self) -> None:
         """Delete the selected file."""

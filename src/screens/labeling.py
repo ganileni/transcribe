@@ -18,6 +18,7 @@ class LabelingScreen(Screen):
     BINDINGS = [
         ("n", "next_speaker", "Next Speaker"),
         ("p", "prev_speaker", "Previous Speaker"),
+        ("m", "more_samples", "More Samples"),
         ("s", "save_labels", "Save"),
         ("g", "generate_summary", "Generate Summary"),
         ("escape", "go_back", "Back"),
@@ -29,6 +30,7 @@ class LabelingScreen(Screen):
         self.current_transcript: TranscriptData | None = None
         self.current_transcript_path: Path | None = None
         self.current_speaker_index: int = 0
+        self.sample_count: int = 3
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -48,6 +50,7 @@ class LabelingScreen(Screen):
             with Horizontal(id="labeling-actions"):
                 yield Button("[P]revious", id="prev-btn")
                 yield Button("[N]ext", id="next-btn")
+                yield Button("[M]ore Samples", id="more-btn")
                 yield Button("[S]ave All", id="save-btn", variant="success")
                 yield Button("[G]enerate Summary", id="summary-btn", variant="primary")
                 yield Button("[B]ack", id="back-btn")
@@ -105,6 +108,7 @@ class LabelingScreen(Screen):
             self.current_transcript = TranscriptData.load(path)
             self.current_transcript_path = path
             self.current_speaker_index = 0
+            self.sample_count = 3
             self._show_current_speaker()
 
             name_label = self.query_one("#transcript-name", Label)
@@ -130,7 +134,7 @@ class LabelingScreen(Screen):
         )
 
         # Get and display samples
-        samples = self.current_transcript.get_speaker_samples(speaker.id, 3)
+        samples = self.current_transcript.get_speaker_samples(speaker.id, self.sample_count)
         samples_content = self.query_one("#samples-content", Static)
 
         if samples:
@@ -178,6 +182,8 @@ class LabelingScreen(Screen):
             self.action_next_speaker()
         elif button_id == "save-btn":
             self.action_save_labels()
+        elif button_id == "more-btn":
+            self.action_more_samples()
         elif button_id == "summary-btn":
             self.action_generate_summary()
         elif button_id == "back-btn":
@@ -197,6 +203,7 @@ class LabelingScreen(Screen):
         self.current_speaker_index += 1
         if self.current_speaker_index >= len(self.current_transcript.speakers):
             self.current_speaker_index = 0
+        self.sample_count = 3
         self._show_current_speaker()
 
     def action_prev_speaker(self) -> None:
@@ -208,6 +215,15 @@ class LabelingScreen(Screen):
         self.current_speaker_index -= 1
         if self.current_speaker_index < 0:
             self.current_speaker_index = len(self.current_transcript.speakers) - 1
+        self.sample_count = 3
+        self._show_current_speaker()
+
+    def action_more_samples(self) -> None:
+        """Show more sample utterances."""
+        if not self.current_transcript:
+            return
+
+        self.sample_count += 3
         self._show_current_speaker()
 
     def action_save_labels(self) -> None:
@@ -267,7 +283,7 @@ class LabelingScreen(Screen):
             output_dir = self.app.config.summaries_dir
 
             def progress(msg: str) -> None:
-                self.call_from_thread(self.notify, msg, severity="information")
+                self.app.call_from_thread(self.notify, msg, severity="information")
 
             summary_path = summarizer.summarize_and_save(
                 self.current_transcript_path,
@@ -279,12 +295,12 @@ class LabelingScreen(Screen):
             # Update database
             self.app.db.mark_summarized(str(self.current_transcript_path), str(summary_path))
 
-            self.call_from_thread(
+            self.app.call_from_thread(
                 self.notify, f"Summary saved: {summary_path.name}", severity="information"
             )
 
         except Exception as e:
-            self.call_from_thread(self.notify, f"Summary failed: {e}", severity="error")
+            self.app.call_from_thread(self.notify, f"Summary failed: {e}", severity="error")
 
     def action_go_back(self) -> None:
         """Go back to main menu."""

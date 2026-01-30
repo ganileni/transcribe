@@ -159,6 +159,10 @@ Screen {
     padding: 1 0;
 }
 
+#labeling-actions Button {
+    min-width: 18;
+}
+
 /* Common */
 .title {
     text-style: bold;
