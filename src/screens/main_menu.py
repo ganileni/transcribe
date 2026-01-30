@@ -18,6 +18,7 @@ class MainMenuScreen(Screen):
 
     BINDINGS = [
         ("r", "toggle_recording", "Toggle Recording"),
+        ("a", "toggle_auto_process", "Auto Process"),
         ("f", "show_files", "Files"),
         ("l", "show_labeling", "Label"),
         ("p", "process_all", "Process"),
@@ -29,6 +30,7 @@ class MainMenuScreen(Screen):
     duration = reactive("00:00:00")
     pending_count = reactive(0)
     unlabeled_count = reactive(0)
+    auto_process_enabled = reactive(False)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -57,14 +59,25 @@ class MainMenuScreen(Screen):
                     yield Label("Pending: 0 files", id="pending-label")
                     yield Label("  |  ", classes="info-text")
                     yield Label("Unlabeled: 0 transcripts", id="unlabeled-label")
+                    yield Label("  |  ", classes="info-text")
+                    yield Label("Auto: OFF", id="auto-label")
+                    yield Button("[A]uto", id="auto-btn", classes="action-button")
         yield Footer()
 
     def on_mount(self) -> None:
         """Called when screen is mounted."""
+        self.auto_process_enabled = self.app.config.auto_process
         self._update_status()
         self._update_recording_status()
+        self._update_auto_label()
         self.set_interval(1.0, self._update_recording_status)
         self.set_interval(5.0, self._scan_for_new_files)
+
+    def _update_auto_label(self) -> None:
+        """Update the auto-process label."""
+        label = self.query_one("#auto-label", Label)
+        status = "ON" if self.auto_process_enabled else "OFF"
+        label.update(f"Auto: {status}")
 
     def _update_status(self) -> None:
         """Update status counts from database."""
@@ -131,7 +144,7 @@ class MainMenuScreen(Screen):
             self.notify(f"Found {len(new_files)} new file(s)")
 
             # Auto-process if enabled
-            if app.config.auto_process:
+            if self.auto_process_enabled:
                 self._auto_process_new_files()
 
     def _auto_process_new_files(self) -> None:
@@ -162,6 +175,8 @@ class MainMenuScreen(Screen):
             self.action_process_all()
         elif button_id == "config-btn":
             self.action_edit_config()
+        elif button_id == "auto-btn":
+            self.action_toggle_auto_process()
         elif button_id == "quit-btn":
             self.action_quit()
 
@@ -194,6 +209,13 @@ class MainMenuScreen(Screen):
             self.action_stop_recording()
         else:
             self.action_start_recording()
+
+    def action_toggle_auto_process(self) -> None:
+        """Toggle auto-processing of new files."""
+        self.auto_process_enabled = not self.auto_process_enabled
+        self._update_auto_label()
+        status = "enabled" if self.auto_process_enabled else "disabled"
+        self.notify(f"Auto-processing {status}")
 
     def action_show_files(self) -> None:
         """Show files screen."""
