@@ -41,16 +41,16 @@ class FilesScreen(Screen):
     def on_mount(self) -> None:
         """Called when screen is mounted."""
         table = self.query_one("#files-table", DataTable)
-        table.add_columns("Filename", "Status", "Added")
+        table.add_columns("Filename", "Stage", "Added")
         table.cursor_type = "row"
         self._refresh_table()
         self.set_interval(60.0, self._refresh_table)
 
     def _get_files(self) -> list[tuple[str, str, str, str]]:
-        """Get list of audio files with status.
+        """Get list of audio files with stage.
 
         Returns:
-            List of (path, filename, status, added_time) tuples.
+            List of (path, filename, stage, added_time) tuples.
         """
         app = self.app
         db = app.db
@@ -70,16 +70,18 @@ class FilesScreen(Screen):
                     if path_str in db_files:
                         f = db_files[path_str]
                         added = f.added_at.strftime("%Y-%m-%d %H:%M") if f.added_at else "-"
-                        result.append((path_str, f.filename, f.status, added))
+                        stage = "transcribed" if f.transcribed_at else "to transcribe"
+                        result.append((path_str, f.filename, stage, added))
                         del db_files[path_str]
                     else:
-                        result.append((path_str, file.name, "pending", "-"))
+                        result.append((path_str, file.name, "to transcribe", "-"))
 
         # Add any remaining DB files (that might have been moved)
         for f in db_files.values():
             if Path(f.path).exists():
                 added = f.added_at.strftime("%Y-%m-%d %H:%M") if f.added_at else "-"
-                result.append((f.path, f.filename, f.status, added))
+                stage = "transcribed" if f.transcribed_at else "to transcribe"
+                result.append((f.path, f.filename, stage, added))
 
         return result
 
@@ -93,9 +95,9 @@ class FilesScreen(Screen):
             table.add_row("No audio files found", "-", "-")
             return
 
-        for path, filename, status, added in files:
-            status_icon = "+" if status == "transcribed" else "o"
-            table.add_row(filename, f"{status_icon} {status}", added, key=path)
+        for path, filename, stage, added in files:
+            stage_icon = "+" if stage == "transcribed" else "o"
+            table.add_row(filename, f"{stage_icon} {stage}", added, key=path)
 
     def _get_selected_path(self) -> str | None:
         """Get the currently selected file path."""

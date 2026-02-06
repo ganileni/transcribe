@@ -1,6 +1,5 @@
 """Main menu screen for Transcribe TUI."""
 
-import shutil
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -248,8 +247,6 @@ class MainMenuScreen(Screen):
 
         transcriber = Transcriber(api_key)
         output_dir = app.config.raw_transcripts_dir
-        done_dir = app.config.done_dir
-        done_dir.mkdir(parents=True, exist_ok=True)
 
         processed = 0
         for audio in files:
@@ -268,9 +265,6 @@ class MainMenuScreen(Screen):
                 app.db.mark_transcribed(audio.path, str(transcript_path))
                 if audio_id:
                     app.db.add_transcript(str(transcript_path), audio_id)
-
-                # Move original to done directory
-                shutil.move(audio.path, done_dir / audio.filename)
 
                 processed += 1
                 self.notify(f"Completed: {audio.filename}", severity="information")
