@@ -47,11 +47,11 @@ class MainMenuScreen(Screen):
             with Vertical(id="quick-actions"):
                 yield Label("Quick Actions", classes="section-title")
                 with Horizontal():
-                    yield Button("[F]iles", id="files-btn", classes="action-button")
-                    yield Button("[L]abel", id="label-btn", classes="action-button")
-                    yield Button("[P]rocess", id="process-btn", classes="action-button")
-                    yield Button("[C]onfig", id="config-btn", classes="action-button")
-                    yield Button("[Q]uit", id="quit-btn", classes="action-button", variant="error")
+                    yield Button("\\[F]iles", id="files-btn", classes="action-button")
+                    yield Button("\\[L]abel", id="label-btn", classes="action-button")
+                    yield Button("\\[P]rocess", id="process-btn", classes="action-button")
+                    yield Button("\\[C]onfig", id="config-btn", classes="action-button")
+                    yield Button("\\[Q]uit", id="quit-btn", classes="action-button", variant="error")
 
             with Vertical(id="status-bar"):
                 yield Label("Status", classes="section-title")
@@ -61,7 +61,7 @@ class MainMenuScreen(Screen):
                     yield Label("Unlabeled: 0 transcripts", id="unlabeled-label")
                     yield Label("  |  ", classes="info-text")
                     yield Label("Auto: OFF", id="auto-label")
-                    yield Button("[A]uto", id="auto-btn", classes="action-button")
+                    yield Button("\\[A]uto", id="auto-btn", classes="action-button")
         yield Footer()
 
     def on_mount(self) -> None:

@@ -31,11 +31,11 @@ class FilesScreen(Screen):
             yield Label("Audio Files", classes="title")
             yield DataTable(id="files-table")
             with Horizontal(id="files-actions"):
-                yield Button("[T]ranscribe", id="transcribe-btn", variant="primary")
-                yield Button("[D]elete", id="delete-btn", variant="error")
-                yield Button("[R]efresh", id="refresh-btn")
-                yield Button("[O]pen Folder", id="open-btn")
-                yield Button("[B]ack", id="back-btn")
+                yield Button("\\[T]ranscribe", id="transcribe-btn", variant="primary")
+                yield Button("\\[D]elete", id="delete-btn", variant="error")
+                yield Button("\\[R]efresh", id="refresh-btn")
+                yield Button("\\[O]pen Folder", id="open-btn")
+                yield Button("\\[B]ack", id="back-btn")
         yield Footer()
 
     def on_mount(self) -> None:
