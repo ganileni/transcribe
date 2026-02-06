@@ -320,6 +320,44 @@ class Database:
             )
         return result
 
+    def list_all_transcripts(self) -> list[Transcript]:
+        """List all transcripts sorted by most recent activity.
+
+        Returns:
+            List of Transcript objects ordered by COALESCE(summarized_at, labeled_at, created_at) DESC.
+        """
+        conn = self._get_conn()
+        rows = conn.execute(
+            """SELECT id, path, audio_file_id, created_at, labeled_at, summarized_at, summary_path
+               FROM transcripts
+               ORDER BY COALESCE(summarized_at, labeled_at, created_at) DESC"""
+        ).fetchall()
+
+        result = []
+        for row in rows:
+            created_at = None
+            if row["created_at"]:
+                created_at = datetime.fromisoformat(row["created_at"])
+            labeled_at = None
+            if row["labeled_at"]:
+                labeled_at = datetime.fromisoformat(row["labeled_at"])
+            summarized_at = None
+            if row["summarized_at"]:
+                summarized_at = datetime.fromisoformat(row["summarized_at"])
+
+            result.append(
+                Transcript(
+                    id=row["id"],
+                    path=row["path"],
+                    audio_file_id=row["audio_file_id"],
+                    created_at=created_at,
+                    labeled_at=labeled_at,
+                    summarized_at=summarized_at,
+                    summary_path=row["summary_path"],
+                )
+            )
+        return result
+
     # Statistics
 
     def get_pending_count(self) -> int:

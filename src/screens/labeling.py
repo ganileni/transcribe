@@ -45,7 +45,7 @@ class LabelingScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         with Container(id="labeling-container"):
-            yield Label("Unlabeled Transcripts", classes="title")
+            yield Label("Transcripts", classes="title")
             yield DataTable(id="transcript-list")
 
             with Vertical(id="speaker-form"):
@@ -70,7 +70,7 @@ class LabelingScreen(Screen):
     def on_mount(self) -> None:
         """Called when screen is mounted."""
         table = self.query_one("#transcript-list", DataTable)
-        table.add_columns("Transcript", "Date", "Duration", "Speakers")
+        table.add_columns("Transcript", "Stage", "Date", "Duration", "Speakers")
         table.cursor_type = "row"
         self._refresh_transcripts()
         self.set_interval(60.0, self._refresh_transcripts)
@@ -81,26 +81,12 @@ class LabelingScreen(Screen):
             table = self.query_one("#transcript-list", DataTable)
             table.clear()
 
-            # Get unlabeled transcripts from DB
-            unlabeled = self.app.db.get_unlabeled()
+            # Get all transcripts from DB, sorted by most recent activity
+            all_transcripts = self.app.db.list_all_transcripts()
             self.transcripts = []
 
-            # Also scan filesystem
-            raw_dir = self.app.config.raw_transcripts_dir
-            if raw_dir.exists():
-                for file in raw_dir.glob("*.yaml"):
-                    path_str = str(file)
-                    if path_str not in unlabeled:
-                        # Check if it's unlabeled
-                        try:
-                            content = file.read_text()
-                            if "labeled: false" in content:
-                                unlabeled.append(path_str)
-                        except Exception:
-                            pass
-
-            for path_str in unlabeled:
-                path = Path(path_str)
+            for t in all_transcripts:
+                path = Path(t.path)
                 if path.exists():
                     self.transcripts.append(path)
                     try:
@@ -112,10 +98,12 @@ class LabelingScreen(Screen):
                         num_speakers = "?"
                         date = "-"
                         duration = "-"
-                    table.add_row(path.name, date, duration, f"{num_speakers}", key=path_str)
+                    # Get stage from DB record status property
+                    stage = t.status  # "unlabeled", "labeled", or "summarized"
+                    table.add_row(path.name, stage, date, duration, f"{num_speakers}", key=t.path)
 
             if not self.transcripts:
-                table.add_row("No unlabeled transcripts", "-", "-", "-")
+                table.add_row("No transcripts", "-", "-", "-", "-")
         except Exception as e:
             self.notify(f"Error refreshing: {e}", severity="error")
 
@@ -347,7 +335,7 @@ class LabelingScreen(Screen):
     def action_refresh(self) -> None:
         """Refresh the transcript list."""
         self._refresh_transcripts()
-        self.notify(f"Found {len(self.transcripts)} unlabeled transcript(s)")
+        self.notify(f"Found {len(self.transcripts)} transcript(s)")
 
     def action_go_back(self) -> None:
         """Go back to main menu."""
