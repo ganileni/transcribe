@@ -91,19 +91,25 @@ class LabelingScreen(Screen):
                     self.transcripts.append(path)
                     try:
                         transcript = TranscriptData.load(path)
-                        num_speakers = len(transcript.speakers)
                         date = transcript.transcribed.strftime("%Y-%m-%d %H:%M")
                         duration = self._format_duration(transcript.duration_seconds)
+                        # For unlabeled, show count + IDs; for labeled, show names from DB
+                        if t.speakers:
+                            speakers_display = t.speakers
+                        else:
+                            num_speakers = len(transcript.speakers)
+                            speaker_ids = [s.id for s in transcript.speakers]
+                            speakers_display = f"{num_speakers} ({', '.join(speaker_ids)})"
                     except Exception:
-                        num_speakers = "?"
                         date = "-"
                         duration = "-"
+                        speakers_display = t.speakers if t.speakers else "?"
                     # Get stage from DB record status property
                     stage = t.status  # "unlabeled", "labeled", or "summarized"
                     # Name column: show meeting_title if set, else filename
                     name = t.meeting_title if t.meeting_title else path.name
                     table.add_row(
-                        name, path.name, stage, date, duration, f"{num_speakers}", key=t.path
+                        name, path.name, stage, date, duration, speakers_display, key=t.path
                     )
 
             if not self.transcripts:
@@ -265,7 +271,9 @@ class LabelingScreen(Screen):
 
         if all_labeled:
             self.current_transcript.mark_labeled()
-            self.app.db.mark_labeled(str(self.current_transcript_path))
+            # Get comma-separated speaker names
+            speaker_names = ", ".join(self.current_transcript.get_participants())
+            self.app.db.mark_labeled(str(self.current_transcript_path), speaker_names)
 
         # Save to file
         self.current_transcript.save(self.current_transcript_path)

@@ -67,6 +67,13 @@ class Database:
         except sqlite3.OperationalError:
             pass  # Column already exists
 
+        # Migration: add speakers column if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE transcripts ADD COLUMN speakers TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
     def close(self) -> None:
         """Close database connection."""
         if self._conn:
@@ -225,17 +232,28 @@ class Database:
         ).fetchone()
         return row["id"] if row else 0
 
-    def mark_labeled(self, transcript_path: str | Path) -> None:
+    def mark_labeled(
+        self, transcript_path: str | Path, speakers: str | None = None
+    ) -> None:
         """Mark a transcript as labeled.
 
         Args:
             transcript_path: Path to the transcript file.
+            speakers: Optional comma-separated list of speaker names.
         """
         conn = self._get_conn()
-        conn.execute(
-            "UPDATE transcripts SET labeled_at = CURRENT_TIMESTAMP WHERE path = ?",
-            (str(transcript_path),),
-        )
+        if speakers:
+            conn.execute(
+                """UPDATE transcripts
+                   SET labeled_at = CURRENT_TIMESTAMP, speakers = ?
+                   WHERE path = ?""",
+                (speakers, str(transcript_path)),
+            )
+        else:
+            conn.execute(
+                "UPDATE transcripts SET labeled_at = CURRENT_TIMESTAMP WHERE path = ?",
+                (str(transcript_path),),
+            )
         conn.commit()
 
     def mark_summarized(self, transcript_path: str | Path, summary_path: str | Path) -> None:
@@ -350,7 +368,7 @@ class Database:
         conn = self._get_conn()
         rows = conn.execute(
             """SELECT id, path, audio_file_id, created_at, labeled_at, summarized_at,
-                      summary_path, meeting_title
+                      summary_path, meeting_title, speakers
                FROM transcripts
                ORDER BY COALESCE(summarized_at, labeled_at, created_at) DESC"""
         ).fetchall()
@@ -377,6 +395,7 @@ class Database:
                     summarized_at=summarized_at,
                     summary_path=row["summary_path"],
                     meeting_title=row["meeting_title"],
+                    speakers=row["speakers"],
                 )
             )
         return result
