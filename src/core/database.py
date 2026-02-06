@@ -60,6 +60,13 @@ class Database:
         conn.executescript(self.SCHEMA)
         conn.commit()
 
+        # Migration: add meeting_title column if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE transcripts ADD COLUMN meeting_title TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
     def close(self) -> None:
         """Close database connection."""
         if self._conn:
@@ -247,6 +254,20 @@ class Database:
         )
         conn.commit()
 
+    def update_meeting_title(self, transcript_path: str | Path, title: str) -> None:
+        """Update the meeting title for a transcript.
+
+        Args:
+            transcript_path: Path to the transcript file.
+            title: The meeting title to set.
+        """
+        conn = self._get_conn()
+        conn.execute(
+            "UPDATE transcripts SET meeting_title = ? WHERE path = ?",
+            (title, str(transcript_path)),
+        )
+        conn.commit()
+
     def delete_transcript(self, path: str | Path) -> None:
         """Delete a transcript record.
 
@@ -328,7 +349,8 @@ class Database:
         """
         conn = self._get_conn()
         rows = conn.execute(
-            """SELECT id, path, audio_file_id, created_at, labeled_at, summarized_at, summary_path
+            """SELECT id, path, audio_file_id, created_at, labeled_at, summarized_at,
+                      summary_path, meeting_title
                FROM transcripts
                ORDER BY COALESCE(summarized_at, labeled_at, created_at) DESC"""
         ).fetchall()
@@ -354,6 +376,7 @@ class Database:
                     labeled_at=labeled_at,
                     summarized_at=summarized_at,
                     summary_path=row["summary_path"],
+                    meeting_title=row["meeting_title"],
                 )
             )
         return result

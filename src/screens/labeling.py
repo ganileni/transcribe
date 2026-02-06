@@ -70,7 +70,7 @@ class LabelingScreen(Screen):
     def on_mount(self) -> None:
         """Called when screen is mounted."""
         table = self.query_one("#transcript-list", DataTable)
-        table.add_columns("Transcript", "Stage", "Date", "Duration", "Speakers")
+        table.add_columns("Name", "Filename", "Stage", "Date", "Duration", "Speakers")
         table.cursor_type = "row"
         self._refresh_transcripts()
         self.set_interval(60.0, self._refresh_transcripts)
@@ -100,10 +100,14 @@ class LabelingScreen(Screen):
                         duration = "-"
                     # Get stage from DB record status property
                     stage = t.status  # "unlabeled", "labeled", or "summarized"
-                    table.add_row(path.name, stage, date, duration, f"{num_speakers}", key=t.path)
+                    # Name column: show meeting_title if set, else filename
+                    name = t.meeting_title if t.meeting_title else path.name
+                    table.add_row(
+                        name, path.name, stage, date, duration, f"{num_speakers}", key=t.path
+                    )
 
             if not self.transcripts:
-                table.add_row("No transcripts", "-", "-", "-", "-")
+                table.add_row("No transcripts", "-", "-", "-", "-", "-")
         except Exception as e:
             self.notify(f"Error refreshing: {e}", severity="error")
 
@@ -311,7 +315,7 @@ class LabelingScreen(Screen):
             def progress(msg: str) -> None:
                 self.notify(msg, severity="information")
 
-            summary_path = summarizer.summarize_and_save(
+            summary_path, generated_title = summarizer.summarize_and_save(
                 self.current_transcript_path,
                 title,
                 output_dir,
@@ -320,6 +324,7 @@ class LabelingScreen(Screen):
 
             # Update database
             self.app.db.mark_summarized(str(self.current_transcript_path), str(summary_path))
+            self.app.db.update_meeting_title(str(self.current_transcript_path), generated_title)
 
             self.notify(f"Summary saved: {summary_path.name}", severity="information")
             self._refresh_transcripts()

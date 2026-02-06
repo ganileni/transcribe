@@ -65,16 +65,48 @@ class Summarizer:
         """Get relative path for Obsidian wikilink."""
         return f"raw-transcription/{transcript_path.stem}"
 
-    def _get_summary_filename(self, transcript_path: Path, title: str) -> str:
-        """Generate summary filename from date and title."""
+    def _get_summary_filename(
+        self, transcript_path: Path, title: str, participants: list[str]
+    ) -> str:
+        """Generate summary filename from date, participants, and title."""
         # Extract date
         match = re.match(r"^(\d{4}-\d{2}-\d{2})", transcript_path.name)
         date = match.group(1) if match else datetime.now().strftime("%Y-%m-%d")
 
-        # Slugify title
-        slug = re.sub(r"[^a-z0-9-]", "", title.lower().replace(" ", "-"))
+        # Slugify participants and title
+        participants_slug = "-".join(
+            re.sub(r"[^a-z0-9]", "", p.lower()) for p in participants[:2]
+        )
+        title_slug = re.sub(r"[^a-z0-9-]", "", title.lower().replace(" ", "-"))
+        title_slug = re.sub(r"-+", "-", title_slug).strip("-")[:50]
 
-        return f"{date}-{slug}.md"
+        parts = [date]
+        if participants_slug:
+            parts.append(participants_slug)
+        if title_slug:
+            parts.append(title_slug)
+
+        return "-".join(parts) + ".md"
+
+    def _extract_title(self, summary: str) -> str:
+        """Extract meeting title from Claude's output.
+
+        Args:
+            summary: The full summary output from Claude.
+
+        Returns:
+            The extracted title, or "Meeting" if not found.
+        """
+        # Look for ### Meeting Title section
+        match = re.search(
+            r"###\s*Meeting\s*Title\s*\n+([^\n#]+)", summary, re.IGNORECASE
+        )
+        if match:
+            title = match.group(1).strip()
+            # Remove any markdown formatting
+            title = re.sub(r"[*_`]", "", title)
+            return title
+        return "Meeting"
 
     def build_prompt(
         self,
@@ -118,16 +150,16 @@ Raw Transcript Link: [[{wikilink}]]
         transcript_path: str | Path,
         title: str,
         progress_callback: Callable[[str], None] | None = None,
-    ) -> str:
+    ) -> tuple[str, str]:
         """Summarize a transcript using Claude CLI.
 
         Args:
             transcript_path: Path to the transcript YAML file.
-            title: Meeting title.
+            title: Meeting title (fallback if Claude doesn't generate one).
             progress_callback: Optional callback for progress updates.
 
         Returns:
-            The generated summary text.
+            Tuple of (summary_text, generated_title).
 
         Raises:
             SummarizationError: If summarization fails.
@@ -159,7 +191,10 @@ Raw Transcript Link: [[{wikilink}]]
         if result.returncode != 0:
             raise SummarizationError(f"Claude CLI error: {result.stderr}")
 
-        return result.stdout.strip()
+        summary = result.stdout.strip()
+        generated_title = self._extract_title(summary)
+
+        return summary, generated_title
 
     def summarize_and_save(
         self,
@@ -167,36 +202,39 @@ Raw Transcript Link: [[{wikilink}]]
         title: str,
         output_dir: str | Path,
         progress_callback: Callable[[str], None] | None = None,
-    ) -> Path:
+    ) -> tuple[Path, str]:
         """Summarize a transcript and save the result.
 
         Args:
             transcript_path: Path to the transcript YAML file.
-            title: Meeting title.
+            title: Meeting title (fallback if Claude doesn't generate one).
             output_dir: Directory to save the summary.
             progress_callback: Optional callback for progress updates.
 
         Returns:
-            Path to the saved summary file.
+            Tuple of (path_to_summary_file, generated_title).
         """
         transcript_path = Path(transcript_path)
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         transcript = TranscriptData.load(transcript_path)
-        summary = self.summarize(transcript_path, title, progress_callback)
+        summary, generated_title = self.summarize(transcript_path, title, progress_callback)
 
         # Build output file
         date = self._get_transcript_date(transcript, transcript_path)
-        participants = ", ".join(transcript.get_participants())
+        participants_list = transcript.get_participants()
+        participants = ", ".join(participants_list)
         wikilink = self._get_wikilink(transcript_path)
-        output_filename = self._get_summary_filename(transcript_path, title)
+        output_filename = self._get_summary_filename(
+            transcript_path, generated_title, participants_list
+        )
         output_file = output_dir / output_filename
 
         # Write output with frontmatter
         output_content = f"""---
 date: {date}
-title: {title}
+title: {generated_title}
 participants: [{participants}]
 ---
 
@@ -209,4 +247,4 @@ participants: [{participants}]
         if progress_callback:
             progress_callback(f"Summary saved to: {output_file}")
 
-        return output_file
+        return output_file, generated_title

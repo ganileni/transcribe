@@ -38,6 +38,7 @@ class Transcript:
     labeled_at: datetime | None = None
     summarized_at: datetime | None = None
     summary_path: str | None = None
+    meeting_title: str | None = None
 
     @property
     def status(self) -> str:

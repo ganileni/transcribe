@@ -4,6 +4,10 @@ You are summarizing a meeting transcript. Create a clear, actionable summary in 
 
 Produce the following sections:
 
+### Meeting Title
+Generate a concise, descriptive meeting title (5-10 words).
+Output ONLY the title text on a single line, no markdown formatting.
+
 ### Summary
 A concise 2-4 paragraph summary of the meeting covering:
 - Main topics discussed
