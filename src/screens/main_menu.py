@@ -46,8 +46,7 @@ class MainMenuScreen(Screen):
             with Vertical(id="quick-actions"):
                 yield Label("Quick Actions", classes="section-title")
                 with Horizontal():
-                    yield Button("\\[F]iles", id="files-btn", classes="action-button")
-                    yield Button("\\[L]abel", id="label-btn", classes="action-button")
+                    yield Button("\\[F]iles & Labels", id="files-btn", classes="action-button")
                     yield Button("\\[P]rocess", id="process-btn", classes="action-button")
                     yield Button("\\[C]onfig", id="config-btn", classes="action-button")
                     yield Button("\\[Q]uit", id="quit-btn", classes="action-button", variant="error")
@@ -168,8 +167,6 @@ class MainMenuScreen(Screen):
             self.action_stop_recording()
         elif button_id == "files-btn":
             self.action_show_files()
-        elif button_id == "label-btn":
-            self.action_show_labeling()
         elif button_id == "process-btn":
             self.action_process_all()
         elif button_id == "config-btn":

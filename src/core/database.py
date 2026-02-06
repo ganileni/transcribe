@@ -400,6 +400,75 @@ class Database:
             )
         return result
 
+    def list_unified(self) -> list[dict]:
+        """List all audio files and transcripts unified, sorted by most recent activity.
+
+        Returns:
+            List of dicts with keys: type, audio_path, audio_filename, transcript_path,
+            stage, speakers, date, duration, name, meeting_title.
+        """
+        conn = self._get_conn()
+
+        # Get all audio files LEFT JOINed with transcripts
+        rows = conn.execute(
+            """SELECT
+                a.id as audio_id,
+                a.path as audio_path,
+                a.filename as audio_filename,
+                a.added_at,
+                a.transcribed_at,
+                t.id as transcript_id,
+                t.path as transcript_path,
+                t.created_at,
+                t.labeled_at,
+                t.summarized_at,
+                t.meeting_title,
+                t.speakers
+            FROM audio_files a
+            LEFT JOIN transcripts t ON a.id = t.audio_file_id
+            ORDER BY COALESCE(t.summarized_at, t.labeled_at, a.transcribed_at, a.added_at) DESC"""
+        ).fetchall()
+
+        result = []
+        for row in rows:
+            # Determine stage
+            if row["summarized_at"]:
+                stage = "summarized"
+            elif row["labeled_at"]:
+                stage = "labeled"
+            elif row["transcript_path"]:
+                stage = "unlabeled"
+            elif row["transcribed_at"]:
+                stage = "transcribed"
+            else:
+                stage = "to transcribe"
+
+            # Format date from most recent activity
+            date_str = None
+            for dt_field in ["summarized_at", "labeled_at", "transcribed_at", "added_at"]:
+                if row[dt_field]:
+                    try:
+                        dt = datetime.fromisoformat(row[dt_field])
+                        date_str = dt.strftime("%Y-%m-%d %H:%M")
+                    except (ValueError, TypeError):
+                        pass
+                    break
+
+            result.append({
+                "type": "audio" if not row["transcript_path"] else "transcript",
+                "audio_path": row["audio_path"],
+                "audio_filename": row["audio_filename"],
+                "transcript_path": row["transcript_path"],
+                "stage": stage,
+                "speakers": row["speakers"],
+                "date": date_str,
+                "duration": None,  # Will be filled from transcript file if needed
+                "name": row["meeting_title"] or row["audio_filename"],
+                "meeting_title": row["meeting_title"],
+            })
+
+        return result
+
     # Statistics
 
     def get_pending_count(self) -> int:

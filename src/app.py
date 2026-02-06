@@ -6,7 +6,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 
 from .core import Config, Database, Recorder
-from .screens import FilesScreen, LabelingScreen, MainMenuScreen, RecordingScreen
+from .screens import FilesScreen, LabelingScreen, MainMenuScreen, RecordingScreen, UnifiedScreen
 
 
 class TranscribeApp(App):
@@ -36,12 +36,12 @@ class TranscribeApp(App):
         self.push_screen(MainMenuScreen())
 
     def action_show_files(self) -> None:
-        """Show files screen."""
-        self.push_screen(FilesScreen())
+        """Show unified files & labels screen."""
+        self.push_screen(UnifiedScreen())
 
     def action_show_labeling(self) -> None:
-        """Show labeling screen."""
-        self.push_screen(LabelingScreen())
+        """Show unified files & labels screen."""
+        self.push_screen(UnifiedScreen())
 
     def action_show_recording(self) -> None:
         """Show recording screen."""

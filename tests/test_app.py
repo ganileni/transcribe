@@ -10,6 +10,7 @@ from src.app import TranscribeApp
 from src.screens.main_menu import MainMenuScreen
 from src.screens.files import FilesScreen
 from src.screens.labeling import LabelingScreen
+from src.screens.unified import UnifiedScreen
 
 
 class TestTranscribeApp:
@@ -71,7 +72,7 @@ class TestMainMenuScreen:
 
     @pytest.mark.asyncio
     async def test_navigate_to_files(self):
-        """Test navigation to files screen."""
+        """Test navigation to unified files & labels screen."""
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("src.app.Config") as mock_config_class:
                 mock_config = MagicMock()
@@ -86,6 +87,7 @@ class TestMainMenuScreen:
                     mock_db.get_pending_count.return_value = 0
                     mock_db.get_unlabeled_count.return_value = 0
                     mock_db.list_audio_files.return_value = []
+                    mock_db.list_unified.return_value = []
                     mock_db_class.return_value = mock_db
 
                     with patch("src.app.Recorder") as mock_recorder_class:
@@ -96,7 +98,7 @@ class TestMainMenuScreen:
                         app = TranscribeApp()
                         async with app.run_test() as pilot:
                             await pilot.press("f")
-                            assert isinstance(app.screen, FilesScreen)
+                            assert isinstance(app.screen, UnifiedScreen)
 
     @pytest.mark.asyncio
     async def test_toggle_recording_key(self):
@@ -130,7 +132,7 @@ class TestMainMenuScreen:
 
     @pytest.mark.asyncio
     async def test_navigate_to_labeling(self):
-        """Test navigation to labeling screen."""
+        """Test navigation to unified files & labels screen via 'l' key."""
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("src.app.Config") as mock_config_class:
                 mock_config = MagicMock()
@@ -145,6 +147,7 @@ class TestMainMenuScreen:
                     mock_db.get_pending_count.return_value = 0
                     mock_db.get_unlabeled_count.return_value = 0
                     mock_db.get_unlabeled.return_value = []
+                    mock_db.list_unified.return_value = []
                     mock_db_class.return_value = mock_db
 
                     with patch("src.app.Recorder") as mock_recorder_class:
@@ -155,7 +158,7 @@ class TestMainMenuScreen:
                         app = TranscribeApp()
                         async with app.run_test() as pilot:
                             await pilot.press("l")
-                            assert isinstance(app.screen, LabelingScreen)
+                            assert isinstance(app.screen, UnifiedScreen)
 
     @pytest.mark.asyncio
     async def test_escape_goes_back(self):
@@ -174,6 +177,7 @@ class TestMainMenuScreen:
                     mock_db.get_pending_count.return_value = 0
                     mock_db.get_unlabeled_count.return_value = 0
                     mock_db.list_audio_files.return_value = []
+                    mock_db.list_unified.return_value = []
                     mock_db_class.return_value = mock_db
 
                     with patch("src.app.Recorder") as mock_recorder_class:
@@ -185,7 +189,7 @@ class TestMainMenuScreen:
                         async with app.run_test() as pilot:
                             # Go to files
                             await pilot.press("f")
-                            assert isinstance(app.screen, FilesScreen)
+                            assert isinstance(app.screen, UnifiedScreen)
 
                             # Press escape to go back
                             await pilot.press("escape")

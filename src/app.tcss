@@ -188,3 +188,27 @@ Screen {
 LoadingIndicator {
     height: 3;
 }
+
+/* Unified Screen */
+#unified-container {
+    width: 100%;
+    height: 100%;
+    padding: 1 2;
+}
+
+#unified-table {
+    width: 100%;
+    height: 1fr;
+    border: solid $primary;
+    margin-bottom: 1;
+}
+
+#unified-actions {
+    width: 100%;
+    height: auto;
+    padding: 1 0;
+}
+
+#unified-actions Button {
+    min-width: 16;
+}
