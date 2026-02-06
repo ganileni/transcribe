@@ -297,9 +297,16 @@ class LabelingScreen(Screen):
         participants = "-".join(self.current_transcript.get_participants())
         auto_title = f"{date} {participants}".strip() or "Meeting"
 
-        # For now, use auto-generated title
-        # TODO: Add input dialog for custom title
-        self.notify(f"Generating summary: {auto_title}")
+        # Disable button and show prominent notification
+        summary_btn = self.query_one("#summary-btn", Button)
+        summary_btn.disabled = True
+        summary_btn.label = "Generating..."
+
+        self.notify(
+            "Generating summary... this may take a minute",
+            severity="information",
+            timeout=10,
+        )
 
         self.run_worker(
             self._generate_summary(auto_title),
@@ -331,6 +338,11 @@ class LabelingScreen(Screen):
 
         except Exception as e:
             self.notify(f"Summary failed: {e}", severity="error")
+        finally:
+            # Re-enable button
+            summary_btn = self.query_one("#summary-btn", Button)
+            summary_btn.disabled = False
+            summary_btn.label = "\\[G]enerate Summary"
 
     def action_refresh(self) -> None:
         """Refresh the transcript list."""
