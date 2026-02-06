@@ -58,13 +58,13 @@ class LabelingScreen(Screen):
                 yield Input(placeholder="Enter speaker name", id="speaker-input")
 
             with Horizontal(id="labeling-actions"):
-                yield Button("[R]efresh", id="refresh-btn")
-                yield Button("[P]revious", id="prev-btn")
-                yield Button("[N]ext", id="next-btn")
-                yield Button("[M]ore Samples", id="more-btn")
-                yield Button("[S]ave All", id="save-btn", variant="success")
-                yield Button("[G]enerate Summary", id="summary-btn", variant="primary")
-                yield Button("[B]ack", id="back-btn")
+                yield Button("\\[R]efresh", id="refresh-btn")
+                yield Button("\\[P]revious", id="prev-btn")
+                yield Button("\\[N]ext", id="next-btn")
+                yield Button("\\[M]ore Samples", id="more-btn")
+                yield Button("\\[S]ave All", id="save-btn", variant="success")
+                yield Button("\\[G]enerate Summary", id="summary-btn", variant="primary")
+                yield Button("\\[B]ack", id="back-btn")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -226,7 +226,7 @@ class LabelingScreen(Screen):
             self.current_speaker_index = 0
             # Check if all speakers are now labeled
             if self._all_speakers_labeled():
-                self.notify("All speakers labeled! Press [S] to save or [G] to save & summarize")
+                self.notify("All speakers labeled! Press [bold]S[/bold] to save or [bold]G[/bold] to save & summarize")
 
         self.sample_count = 3
         self._show_current_speaker()
