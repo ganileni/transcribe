@@ -282,9 +282,8 @@ class MainMenuScreen(Screen):
         config_file = self.app.config.config_file
         editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vim"))
 
-        self.app.suspend()
-        subprocess.run([editor, str(config_file)])
-        self.app.resume()
+        with self.app.suspend():
+            subprocess.run([editor, str(config_file)])
 
         # Reload config
         self.app.config._load()
