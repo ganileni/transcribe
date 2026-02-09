@@ -5,6 +5,7 @@ from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 
+from .commands import TranscribeCommands
 from .core import Config, Database, Recorder
 from .screens import MainMenuScreen, RecordingScreen, UnifiedScreen
 
@@ -14,6 +15,7 @@ class TranscribeApp(App):
 
     TITLE = "Transcribe"
     CSS_PATH = "app.tcss"
+    COMMANDS = {TranscribeCommands}
 
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
