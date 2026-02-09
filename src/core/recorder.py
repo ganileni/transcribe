@@ -24,6 +24,9 @@ class Recorder:
     PID_FILE = STATE_DIR / "transcribe-recording-pid"
     FILE_FILE = STATE_DIR / "transcribe-recording-file"
     START_FILE = STATE_DIR / "transcribe-recording-start"
+    PAUSE_FILE = STATE_DIR / "transcribe-recording-paused"
+    PAUSED_AT_FILE = STATE_DIR / "transcribe-recording-paused-at"
+    PAUSED_TOTAL_FILE = STATE_DIR / "transcribe-recording-paused-total"
 
     def __init__(self, output_dir: str | Path):
         """Initialize the recorder.
@@ -64,14 +67,29 @@ class Recorder:
         """Check if recording is in progress."""
         return self.STATE_FILE.exists()
 
+    @property
+    def is_paused(self) -> bool:
+        """Check if recording is paused."""
+        return self.PAUSE_FILE.exists()
+
+    def _get_paused_total(self) -> int:
+        """Get total seconds spent paused (accumulated + current pause if active)."""
+        total = 0
+        if self.PAUSED_TOTAL_FILE.exists():
+            total = int(self.PAUSED_TOTAL_FILE.read_text().strip())
+        if self.is_paused and self.PAUSED_AT_FILE.exists():
+            paused_at = int(self.PAUSED_AT_FILE.read_text().strip())
+            total += int(time.time()) - paused_at
+        return total
+
     def get_duration(self) -> str:
-        """Get current recording duration as HH:MM:SS."""
+        """Get current recording duration as HH:MM:SS (excludes paused time)."""
         if not self.START_FILE.exists():
             return "00:00:00"
 
         start = int(self.START_FILE.read_text().strip())
         now = int(time.time())
-        duration = now - start
+        duration = max(0, now - start - self._get_paused_total())
 
         hours = duration // 3600
         minutes = (duration % 3600) // 60
@@ -80,12 +98,12 @@ class Recorder:
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def get_duration_seconds(self) -> int:
-        """Get current recording duration in seconds."""
+        """Get current recording duration in seconds (excludes paused time)."""
         if not self.START_FILE.exists():
             return 0
 
         start = int(self.START_FILE.read_text().strip())
-        return int(time.time()) - start
+        return max(0, int(time.time()) - start - self._get_paused_total())
 
     def get_current_file(self) -> Path | None:
         """Get the current recording file path."""
@@ -179,6 +197,10 @@ class Recorder:
                 progress_callback("No recording in progress")
             return None
 
+        # Resume if paused so ffmpeg can finalise the file
+        if self.is_paused:
+            self.resume()
+
         output_file = self.get_current_file()
 
         # Get PID and stop process
@@ -200,7 +222,8 @@ class Recorder:
                 pass
 
         # Clean up state files
-        for f in [self.STATE_FILE, self.PID_FILE, self.FILE_FILE, self.START_FILE]:
+        for f in [self.STATE_FILE, self.PID_FILE, self.FILE_FILE, self.START_FILE,
+                  self.PAUSE_FILE, self.PAUSED_AT_FILE, self.PAUSED_TOTAL_FILE]:
             if f.exists():
                 f.unlink()
 
@@ -214,6 +237,36 @@ class Recorder:
         if progress_callback:
             progress_callback("Warning: Recording file not found")
         return None
+
+    def pause(self) -> None:
+        """Pause the recording by sending SIGSTOP to ffmpeg."""
+        if not self.is_recording or self.is_paused:
+            return
+        if self.PID_FILE.exists():
+            pid = int(self.PID_FILE.read_text().strip())
+            os.kill(pid, signal.SIGSTOP)
+            self.PAUSED_AT_FILE.write_text(str(int(time.time())))
+            self.PAUSE_FILE.touch()
+
+    def resume(self) -> None:
+        """Resume the recording by sending SIGCONT to ffmpeg."""
+        if not self.is_paused:
+            return
+        if self.PID_FILE.exists():
+            pid = int(self.PID_FILE.read_text().strip())
+            os.kill(pid, signal.SIGCONT)
+
+        # Accumulate paused duration
+        if self.PAUSED_AT_FILE.exists():
+            paused_at = int(self.PAUSED_AT_FILE.read_text().strip())
+            elapsed = int(time.time()) - paused_at
+            prev_total = 0
+            if self.PAUSED_TOTAL_FILE.exists():
+                prev_total = int(self.PAUSED_TOTAL_FILE.read_text().strip())
+            self.PAUSED_TOTAL_FILE.write_text(str(prev_total + elapsed))
+            self.PAUSED_AT_FILE.unlink()
+
+        self.PAUSE_FILE.unlink()
 
     def toggle(
         self,

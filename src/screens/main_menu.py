@@ -104,7 +104,10 @@ class MainMenuScreen(Screen):
             self.duration = recorder.get_duration()
 
             status_widget.add_class("recording")
-            status_label.update("Status: RECORDING")
+            if recorder.is_paused:
+                status_label.update("Status: PAUSED")
+            else:
+                status_label.update("Status: RECORDING")
             status_label.add_class("recording")
             duration_label.update(f"Duration: {self.duration}")
             start_btn.disabled = True

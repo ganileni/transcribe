@@ -12,6 +12,7 @@ class RecordingScreen(Screen):
 
     BINDINGS = [
         ("r", "toggle_recording", "Toggle Recording"),
+        ("p", "toggle_pause", "Pause/Resume"),
         ("escape", "go_back", "Back"),
     ]
 
@@ -28,6 +29,7 @@ class RecordingScreen(Screen):
                 with Horizontal(id="rec-buttons"):
                     yield Button("Start", id="start-btn", variant="success")
                     yield Button("Stop", id="stop-btn", variant="error", disabled=True)
+                    yield Button("Pause", id="pause-btn", disabled=True)
                     yield Button("Back", id="back-btn")
         yield Footer()
 
@@ -46,17 +48,26 @@ class RecordingScreen(Screen):
         recording_box = self.query_one("#recording-box")
         start_btn = self.query_one("#start-btn", Button)
         stop_btn = self.query_one("#stop-btn", Button)
+        pause_btn = self.query_one("#pause-btn", Button)
 
         if recorder.is_recording:
             self.is_recording = True
             self.duration = recorder.get_duration()
 
-            status_label.update("Status: RECORDING")
-            status_label.add_class("recording")
+            if recorder.is_paused:
+                status_label.update("Status: PAUSED")
+                status_label.add_class("recording")
+                pause_btn.label = "Resume"
+            else:
+                status_label.update("Status: RECORDING")
+                status_label.add_class("recording")
+                pause_btn.label = "Pause"
+
             duration_label.update(self.duration)
             recording_box.add_class("recording")
             start_btn.disabled = True
             stop_btn.disabled = False
+            pause_btn.disabled = False
         else:
             self.is_recording = False
             self.duration = "00:00:00"
@@ -67,6 +78,8 @@ class RecordingScreen(Screen):
             recording_box.remove_class("recording")
             start_btn.disabled = False
             stop_btn.disabled = True
+            pause_btn.disabled = True
+            pause_btn.label = "Pause"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
@@ -76,6 +89,8 @@ class RecordingScreen(Screen):
             self.action_start_recording()
         elif button_id == "stop-btn":
             self.action_stop_recording()
+        elif button_id == "pause-btn":
+            self.action_toggle_pause()
         elif button_id == "back-btn":
             self.action_go_back()
 
@@ -107,6 +122,19 @@ class RecordingScreen(Screen):
             self.action_stop_recording()
         else:
             self.action_start_recording()
+
+    def action_toggle_pause(self) -> None:
+        """Toggle pause/resume on the current recording."""
+        recorder = self.app.recorder
+        if not recorder.is_recording:
+            return
+        if recorder.is_paused:
+            recorder.resume()
+            self.notify("Recording resumed", severity="information")
+        else:
+            recorder.pause()
+            self.notify("Recording paused", severity="information")
+        self._update_display()
 
     def action_go_back(self) -> None:
         """Go back to main menu."""
