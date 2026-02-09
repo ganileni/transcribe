@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from threading import Timer
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
@@ -39,6 +40,8 @@ class UnifiedScreen(Screen):
         self.current_transcript_path: Path | None = None
         self.current_speaker_index: int = 0
         self.sample_count: int = 3
+        self._delete_pending_path: str | None = None
+        self._delete_timer: Timer | None = None
 
     def _format_duration(self, seconds: int) -> str:
         """Format duration in seconds to MM:SS or HH:MM:SS."""
@@ -347,21 +350,47 @@ class UnifiedScreen(Screen):
                 self.notify, f"Transcription failed: {e}", severity="error"
             )
 
+    def _reset_delete_pending(self) -> None:
+        """Reset the pending delete state."""
+        self._delete_pending_path = None
+        if self._delete_timer:
+            self._delete_timer.cancel()
+            self._delete_timer = None
+
     def action_delete_selected(self) -> None:
-        """Delete the selected file."""
+        """Delete the selected file (requires double-tap within 3 seconds)."""
         item = self._get_selected_item()
         if not item:
             self.notify("No item selected", severity="warning")
             return
 
         audio_path = item.get("audio_path")
-        if audio_path:
+        if not audio_path:
+            return
+
+        if self._delete_pending_path == audio_path:
+            # Second press: execute delete
+            self._reset_delete_pending()
             path = Path(audio_path)
             if path.exists():
                 path.unlink()
             self.app.db.delete_audio(audio_path)
             self.notify(f"Deleted: {path.name}")
             self._refresh_table()
+        else:
+            # First press: arm deletion
+            self._reset_delete_pending()
+            self._delete_pending_path = audio_path
+            self._delete_timer = Timer(
+                3.0, lambda: self.app.call_from_thread(self._reset_delete_pending)
+            )
+            self._delete_timer.daemon = True
+            self._delete_timer.start()
+            self.notify(
+                f"Press Alt+D again to confirm deletion of {Path(audio_path).name}",
+                severity="warning",
+                timeout=3,
+            )
 
     def action_open_folder(self) -> None:
         """Open the watch directory in file manager."""

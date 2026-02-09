@@ -112,7 +112,7 @@ init_app() {
 }
 
 # Main command dispatch
-case "${1:-help}" in
+case "${1:-gui}" in
     gui)
         # Launch Python TUI
         cd "$SCRIPT_DIR"

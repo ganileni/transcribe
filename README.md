@@ -138,7 +138,7 @@ journalctl --user -u transcribe-watcher -f
 
 ## Workflow
 
-1. **Record** a meeting (via GUI, CLI, or external app like Mobile Recorder)
+1. **Record** a meeting (via GUI, CLI, or external mobile recorder app)
 2. **Transcribe** the audio (automatic if watcher is running, or manually)
 3. **Label** speakers - the GUI shows sample utterances to help identify each speaker
 4. **Summarize** - generates a markdown summary with action items

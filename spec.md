@@ -7,13 +7,13 @@ A complete system for recording, transcribing, and summarising meetings across A
 ```
 ┌─────────────────────┐     ┌─────────────────────┐
 │  Android Phone      │     │  Linux Desktop      │
-│  Mobile Recorder│     │  meeting-recorder.sh│
+│  Mobile Recorder   │     │  meeting-recorder.sh│
 └─────────┬───────────┘     └─────────┬───────────┘
           │                           │
           ▼                           ▼
 ┌─────────────────────────────────────────────────┐
-│              ~/recordings       │
-│              (synced via Google Drive)          │
+│              ~/recordings                       │
+│              (synced via cloud storage)         │
 └─────────────────────────┬───────────────────────┘
                           │
                           ▼
@@ -26,7 +26,7 @@ A complete system for recording, transcribing, and summarising meetings across A
                           │
                           ▼
 ┌─────────────────────────────────────────────────┐
-│              ~/transcripts/                     │
+│              ~/transcripts/raw                   │
 │    • Raw transcripts (.md)                      │
 │    • Summaries (.summary.md)                    │
 └─────────────────────────┬───────────────────────┘
@@ -42,15 +42,15 @@ A complete system for recording, transcribing, and summarising meetings across A
 
 ---
 
-## 1. Android Recording (Mobile Recorder)
+## 1. Android Recording
 
 **Status:** Already configured
 
 **Setup:**
-- App: Mobile Recorder (Play Store)
+- App: Any voice recorder app
 - Output format: MP3 or WAV (MP3 recommended for size)
 - Sync folder: `~/recordings`
-- Google Drive sync: Enabled
+- Cloud sync: Enabled
 
 **No action required.** Files automatically appear in the sync folder when your phone connects to wifi.
 
@@ -118,7 +118,7 @@ Scriberr does not natively mark files as processed. Wrap it with a script that m
 # Wrapper for Scriberr that marks files as processed
 
 INPUT_DIR="$HOME/recordings"
-OUTPUT_DIR="$HOME/transcripts"
+OUTPUT_DIR="$HOME/transcripts/raw"
 DONE_DIR="$INPUT_DIR/.done"
 LOG_FILE="$HOME/.local/log/scriberr.log"
 
@@ -177,7 +177,7 @@ done
 ```bash
 #!/bin/bash
 INPUT_DIR="$HOME/recordings"
-OUTPUT_DIR="$HOME/transcripts"
+OUTPUT_DIR="$HOME/transcripts/raw"
 DONE_DIR="$INPUT_DIR/.done"
 
 mkdir -p "$DONE_DIR" "$OUTPUT_DIR"
@@ -508,7 +508,7 @@ EOF
 - Click "Resume" to continue
 - Click "Stop" to finish and save
 
-The recording saves to the same folder as Mobile Recorder, so it gets picked up by the transcription pipeline automatically.
+The recording saves to the same folder as the mobile recorder, so it gets picked up by the transcription pipeline automatically.
 
 ---
 
@@ -773,12 +773,13 @@ ollama pull llama3.1:8b
 │   ├── scriberr-watcher.sh      # File processing wrapper
 │   ├── summarise-transcript.sh  # LLM summarisation
 │   └── label-speakers.sh        # Speaker name replacement
-├── recordings/
-│   └── Mobile Recorder/     # Synced from Android + Linux recordings
-│       └── .done/               # Processed files moved here
-├── transcripts/                 # Output transcripts and summaries
-│   ├── meeting-20250129-1430.md
-│   └── meeting-20250129-1430.summary.md
+├── recordings/                  # Audio files (synced or recorded locally)
+│   └── .done/                   # Processed files moved here
+├── transcripts/
+│   ├── raw/                     # Raw transcripts
+│   │   └── meeting-20250129-1430.yaml
+│   └── summaries/               # Meeting summaries
+│       └── meeting-20250129-1430.md
 └── .config/
     └── scriberr/
         └── config.yaml
@@ -835,13 +836,13 @@ systemctl --user enable --now scriberr-watcher.service
 
 | Task | Command |
 |------|---------|
-| Record on Android | Open Mobile Recorder, tap record |
+| Record on Android | Open your voice recorder app, tap record |
 | Record on Linux | `meeting-recorder.sh` or click desktop icon |
-| Check transcription status | `ls ~/transcripts/` |
+| Check transcription status | `ls ~/transcripts/raw/` |
 | View pending files | `ls ~/recordings/*.mp3` |
 | View processed files | `ls ~/recordings/.done/` |
-| Manual summarisation | `summarise-transcript.sh ~/transcripts/file.md` |
-| Label speakers | `label-speakers.sh ~/transcripts/file.md` |
+| Manual summarisation | `summarise-transcript.sh ~/transcripts/raw/file.md` |
+| Label speakers | `label-speakers.sh ~/transcripts/raw/file.md` |
 | View logs | `tail -f ~/.local/log/scriberr.log` |
 
 ---
