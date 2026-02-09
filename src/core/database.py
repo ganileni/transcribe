@@ -327,6 +327,24 @@ class Database:
         )
         conn.commit()
 
+    def get_summary_path(self, transcript_path: str | Path) -> str | None:
+        """Get the summary file path for a transcript.
+
+        Args:
+            transcript_path: Path to the transcript file.
+
+        Returns:
+            The summary file path, or None if no summary exists.
+        """
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT summary_path FROM transcripts WHERE path = ?",
+            (str(transcript_path),),
+        ).fetchone()
+        if row and row["summary_path"]:
+            return row["summary_path"]
+        return None
+
     def delete_transcript(self, path: str | Path) -> None:
         """Delete a transcript record.
 

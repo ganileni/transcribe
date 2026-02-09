@@ -35,11 +35,12 @@ Any open questions, items requiring clarification, or topics to revisit.
 
 1. Be concise but complete - capture all important information
 2. Use the speaker names from the transcript
-3. Preserve technical terms and specific details accurately
-4. If speakers discuss code, projects, or technical concepts, include relevant specifics
-5. Flag any decisions that seem tentative or need confirmation
-6. Organize action items by person if multiple people have tasks
-7. Keep the summary professional and neutral in tone
+3. When attributing a statement or action to a speaker, always use the format **Name:** at the start of the attribution (bold name followed by colon). This consistent format enables automated name updates if speakers are relabeled.
+4. Preserve technical terms and specific details accurately
+5. If speakers discuss code, projects, or technical concepts, include relevant specifics
+6. Flag any decisions that seem tentative or need confirmation
+7. Organize action items by person if multiple people have tasks
+8. Keep the summary professional and neutral in tone
 
 ## Input
 

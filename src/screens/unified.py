@@ -26,6 +26,7 @@ class UnifiedScreen(Screen):
         ("alt+m", "more_samples", "More Samples"),
         ("alt+s", "save_labels", "Save"),
         ("alt+g", "generate_summary", "Generate Summary"),
+        ("alt+w", "regenerate_summary", "Regenerate Summary"),
         ("escape", "go_back", "Back"),
     ]
 
@@ -73,6 +74,7 @@ class UnifiedScreen(Screen):
                 yield Button("\\[Alt+M]ore Samples", id="more-btn")
                 yield Button("\\[Alt+S]ave", id="save-btn", variant="success")
                 yield Button("\\[Alt+G]enerate Summary", id="summary-btn", variant="primary")
+                yield Button("\\[Alt+W] Regenerate", id="regen-btn", variant="warning")
                 yield Button("\\[Esc] Back", id="back-btn")
         yield Footer()
 
@@ -273,6 +275,8 @@ class UnifiedScreen(Screen):
             self.action_save_labels()
         elif button_id == "summary-btn":
             self.action_generate_summary()
+        elif button_id == "regen-btn":
+            self.action_regenerate_summary()
         elif button_id == "back-btn":
             self.action_go_back()
 
@@ -411,6 +415,54 @@ class UnifiedScreen(Screen):
         self.sample_count += 3
         self._show_current_speaker()
 
+    def _build_speaker_rename_map(self) -> dict[str, str]:
+        """Build a mapping of old speaker names to new names from current utterances.
+
+        Compares the current utterance speaker values against the new names
+        in the speakers list to find renames.
+        """
+        rename_map = {}
+        # Collect current (old) speaker values from utterances
+        old_speakers_in_utts = {utt.speaker for utt in self.current_transcript.utterances}
+        # Map: speaker.id -> speaker.name (new)
+        id_to_new = {s.id: s.name for s in self.current_transcript.speakers if s.name}
+        # Map: old utterance speaker -> new name
+        # If utterance speaker matches an ID, the new name is id_to_new[id]
+        # If utterance speaker is an old name (already labeled), find which speaker
+        # originally had that ID by checking if any speaker.id maps to a different name
+        for speaker in self.current_transcript.speakers:
+            if not speaker.name:
+                continue
+            # The utterance might use speaker.id (unlabeled) or an old name (relabeled)
+            if speaker.id in old_speakers_in_utts and speaker.name != speaker.id:
+                rename_map[speaker.id] = speaker.name
+            # Check if old name is in utterances (relabeling case)
+            for old_name in old_speakers_in_utts:
+                if old_name == speaker.id:
+                    continue
+                # This old_name belongs to this speaker if it was their previous name
+                # We detect this by checking: no other speaker has this as their id,
+                # and this speaker's id is absent from utterances
+                if (old_name not in id_to_new
+                        and speaker.id not in old_speakers_in_utts
+                        and old_name != speaker.name):
+                    rename_map[old_name] = speaker.name
+        return rename_map
+
+    def _update_summary_file(self, rename_map: dict[str, str]) -> None:
+        """Update speaker names in the summary file using regex replacement."""
+        summary_path_str = self.app.db.get_summary_path(str(self.current_transcript_path))
+        if not summary_path_str:
+            return
+        summary_path = Path(summary_path_str)
+        if not summary_path.exists():
+            return
+
+        content = summary_path.read_text()
+        for old_name, new_name in rename_map.items():
+            content = re.sub(rf"\b{re.escape(old_name)}\b", new_name, content)
+        summary_path.write_text(content)
+
     def action_save_labels(self) -> None:
         """Save all labels to the transcript file."""
         if not self.current_transcript or not self.current_transcript_path:
@@ -419,11 +471,19 @@ class UnifiedScreen(Screen):
 
         self._save_current_speaker_name()
 
+        # Build rename map before replacing speaker values
+        rename_map = self._build_speaker_rename_map()
+
         # Check if all speakers are labeled
         all_labeled = all(s.name for s in self.current_transcript.speakers)
 
-        # Replace speaker IDs with names in utterances
+        # Replace speaker IDs/old names with new names in utterances
         self.current_transcript.replace_speaker_ids_with_names()
+        # Also replace old names with new names for relabeling
+        for old_name, new_name in rename_map.items():
+            for utt in self.current_transcript.utterances:
+                if utt.speaker == old_name:
+                    utt.speaker = new_name
 
         if all_labeled:
             self.current_transcript.mark_labeled()
@@ -433,7 +493,12 @@ class UnifiedScreen(Screen):
         # Save to file
         self.current_transcript.save(self.current_transcript_path)
 
-        self.notify("Labels saved", severity="information")
+        # Update summary file if speaker names changed
+        if rename_map:
+            self._update_summary_file(rename_map)
+            self.notify("Labels and summary updated", severity="information")
+        else:
+            self.notify("Labels saved", severity="information")
         self._refresh_table()
 
     def action_generate_summary(self) -> None:
@@ -503,6 +568,81 @@ class UnifiedScreen(Screen):
             summary_btn = self.query_one("#summary-btn", Button)
             summary_btn.disabled = False
             summary_btn.label = "\\[Alt+G]enerate Summary"
+
+    def action_regenerate_summary(self) -> None:
+        """Regenerate summary for a transcript that already has one."""
+        if not self.current_transcript or not self.current_transcript_path:
+            self.notify("No transcript loaded", severity="warning")
+            return
+
+        if not self.current_transcript.labeled:
+            self.notify("Please label all speakers first", severity="warning")
+            return
+
+        summary_path = self.app.db.get_summary_path(str(self.current_transcript_path))
+        if not summary_path:
+            self.notify("No existing summary to regenerate. Use Alt+G to generate.", severity="warning")
+            return
+
+        # Delete old summary file
+        old_summary = Path(summary_path)
+        if old_summary.exists():
+            old_summary.unlink()
+
+        # Generate title from filename
+        date_match = re.match(r"^(\d{4}-\d{2}-\d{2})", self.current_transcript_path.name)
+        date = date_match.group(1) if date_match else ""
+        participants = "-".join(self.current_transcript.get_participants())
+        auto_title = f"{date} {participants}".strip() or "Meeting"
+
+        regen_btn = self.query_one("#regen-btn", Button)
+        regen_btn.disabled = True
+        regen_btn.label = "Regenerating..."
+
+        self.notify(
+            "Regenerating summary... this may take a minute",
+            severity="information",
+            timeout=10,
+        )
+
+        self.run_worker(
+            self._regenerate_summary(auto_title),
+            name="regenerate",
+            description=f"Regenerating summary for {self.current_transcript_path.name}",
+        )
+
+    async def _regenerate_summary(self, title: str) -> None:
+        """Regenerate summary (runs in async worker)."""
+        try:
+            summarizer = Summarizer()
+            output_dir = self.app.config.summaries_dir
+
+            def progress(msg: str) -> None:
+                self.notify(msg, severity="information")
+
+            summary_path, generated_title = summarizer.summarize_and_save(
+                self.current_transcript_path,
+                title,
+                output_dir,
+                progress,
+            )
+
+            self.app.db.mark_summarized(
+                str(self.current_transcript_path), str(summary_path)
+            )
+            self.app.db.update_meeting_title(
+                str(self.current_transcript_path), generated_title
+            )
+
+            self.notify(f"Summary regenerated: {summary_path.name}", severity="information")
+            self._refresh_table()
+
+        except Exception as e:
+            self.notify(f"Regeneration failed: {e}", severity="error")
+        finally:
+            regen_btn = self.query_one("#regen-btn", Button)
+            regen_btn.disabled = False
+            regen_btn.label = "\\[Alt+W] Regenerate"
 
     def action_refresh(self) -> None:
         """Refresh the file and transcript list."""
