@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
+import yaml
+
 from ..models import AudioFile, Transcript
 
 
@@ -73,6 +75,44 @@ class Database:
             conn.commit()
         except sqlite3.OperationalError:
             pass  # Column already exists
+
+        # Migration: add duration_seconds column if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE transcripts ADD COLUMN duration_seconds INTEGER")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        self._backfill_duration(conn)
+
+    @staticmethod
+    def _read_duration_from_yaml(path: str) -> int | None:
+        """Read duration_seconds from a transcript YAML frontmatter."""
+        p = Path(path)
+        if not p.exists():
+            return None
+        content = p.read_text()
+        docs = list(yaml.safe_load_all(content))
+        if not docs:
+            return None
+        frontmatter = docs[0]
+        if isinstance(frontmatter, dict):
+            return frontmatter.get("duration_seconds")
+        return None
+
+    def _backfill_duration(self, conn: sqlite3.Connection) -> None:
+        """Backfill duration_seconds for existing transcripts from YAML files."""
+        rows = conn.execute(
+            "SELECT path FROM transcripts WHERE duration_seconds IS NULL"
+        ).fetchall()
+        for row in rows:
+            duration = self._read_duration_from_yaml(row["path"])
+            if duration is not None:
+                conn.execute(
+                    "UPDATE transcripts SET duration_seconds = ? WHERE path = ?",
+                    (duration, row["path"]),
+                )
+        conn.commit()
 
     def close(self) -> None:
         """Close database connection."""
@@ -218,9 +258,10 @@ class Database:
             The transcript ID.
         """
         conn = self._get_conn()
+        duration = self._read_duration_from_yaml(str(path))
         cursor = conn.execute(
-            "INSERT OR IGNORE INTO transcripts (path, audio_file_id) VALUES (?, ?)",
-            (str(path), audio_file_id),
+            "INSERT OR IGNORE INTO transcripts (path, audio_file_id, duration_seconds) VALUES (?, ?, ?)",
+            (str(path), audio_file_id, duration),
         )
         conn.commit()
 
@@ -423,7 +464,8 @@ class Database:
                 t.labeled_at,
                 t.summarized_at,
                 t.meeting_title,
-                t.speakers
+                t.speakers,
+                t.duration_seconds
             FROM audio_files a
             LEFT JOIN transcripts t ON a.id = t.audio_file_id
             ORDER BY COALESCE(t.summarized_at, t.labeled_at, a.transcribed_at, a.added_at) DESC"""
@@ -462,7 +504,7 @@ class Database:
                 "stage": stage,
                 "speakers": row["speakers"],
                 "date": date_str,
-                "duration": None,  # Will be filled from transcript file if needed
+                "duration_seconds": row["duration_seconds"],
                 "name": row["meeting_title"] or row["audio_filename"],
                 "meeting_title": row["meeting_title"],
             })

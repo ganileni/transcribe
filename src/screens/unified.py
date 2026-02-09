@@ -133,7 +133,8 @@ class UnifiedScreen(Screen):
                 stage = item.get("stage", "-")
                 speakers = item.get("speakers") or "-"
                 date = item.get("date") or "-"
-                duration = item.get("duration") or "-"
+                dur_secs = item.get("duration_seconds")
+                duration = self._format_duration(dur_secs) if dur_secs else "-"
 
                 # Create a unique key
                 key = item.get("transcript_path") or item.get("audio_path") or filename
