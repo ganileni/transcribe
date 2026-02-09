@@ -11,6 +11,17 @@ A standalone application for recording, transcribing, and summarizing meetings.
 - **File Watching**: Automatic processing of new recordings
 - **Obsidian Integration**: Output format compatible with Obsidian vault
 
+## Screenshots
+
+### Main Menu
+![Main Menu](docs/screenshots/main-menu.svg)
+
+### Files & Labels
+![Files & Labels](docs/screenshots/files-labels.svg)
+
+### Speaker Labeling
+![Speaker Labeling](docs/screenshots/labeling.svg)
+
 ## Installation
 
 ### Dependencies
