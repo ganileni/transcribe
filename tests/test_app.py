@@ -8,8 +8,6 @@ import pytest
 
 from src.app import TranscribeApp
 from src.screens.main_menu import MainMenuScreen
-from src.screens.files import FilesScreen
-from src.screens.labeling import LabelingScreen
 from src.screens.unified import UnifiedScreen
 
 

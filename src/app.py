@@ -6,7 +6,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 
 from .core import Config, Database, Recorder
-from .screens import FilesScreen, LabelingScreen, MainMenuScreen, RecordingScreen, UnifiedScreen
+from .screens import MainMenuScreen, RecordingScreen, UnifiedScreen
 
 
 class TranscribeApp(App):
