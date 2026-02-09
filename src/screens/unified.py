@@ -17,15 +17,15 @@ class UnifiedScreen(Screen):
     """Unified screen combining audio files and transcripts with all commands."""
 
     BINDINGS = [
-        ("t", "transcribe_selected", "Transcribe"),
-        ("d", "delete_selected", "Delete"),
-        ("r", "refresh", "Refresh"),
-        ("o", "open_folder", "Open Folder"),
-        ("n", "next_speaker", "Next Speaker"),
-        ("p", "prev_speaker", "Previous Speaker"),
-        ("m", "more_samples", "More Samples"),
-        ("s", "save_labels", "Save"),
-        ("g", "generate_summary", "Generate Summary"),
+        ("alt+t", "transcribe_selected", "Transcribe"),
+        ("alt+d", "delete_selected", "Delete"),
+        ("alt+r", "refresh", "Refresh"),
+        ("alt+o", "open_folder", "Open Folder"),
+        ("alt+n", "next_speaker", "Next Speaker"),
+        ("alt+p", "prev_speaker", "Previous Speaker"),
+        ("alt+m", "more_samples", "More Samples"),
+        ("alt+s", "save_labels", "Save"),
+        ("alt+g", "generate_summary", "Generate Summary"),
         ("escape", "go_back", "Back"),
     ]
 
@@ -64,16 +64,16 @@ class UnifiedScreen(Screen):
                 yield Input(placeholder="Enter speaker name", id="speaker-input")
 
             with Horizontal(id="unified-actions"):
-                yield Button("\\[T]ranscribe", id="transcribe-btn", variant="primary")
-                yield Button("\\[D]elete", id="delete-btn", variant="error")
-                yield Button("\\[R]efresh", id="refresh-btn")
-                yield Button("\\[O]pen Folder", id="open-btn")
-                yield Button("\\[P]revious", id="prev-btn")
-                yield Button("\\[N]ext", id="next-btn")
-                yield Button("\\[M]ore Samples", id="more-btn")
-                yield Button("\\[S]ave", id="save-btn", variant="success")
-                yield Button("\\[G]enerate Summary", id="summary-btn", variant="primary")
-                yield Button("\\[B]ack", id="back-btn")
+                yield Button("\\[Alt+T]ranscribe", id="transcribe-btn", variant="primary")
+                yield Button("\\[Alt+D]elete", id="delete-btn", variant="error")
+                yield Button("\\[Alt+R]efresh", id="refresh-btn")
+                yield Button("\\[Alt+O]pen Folder", id="open-btn")
+                yield Button("\\[Alt+P]revious", id="prev-btn")
+                yield Button("\\[Alt+N]ext", id="next-btn")
+                yield Button("\\[Alt+M]ore Samples", id="more-btn")
+                yield Button("\\[Alt+S]ave", id="save-btn", variant="success")
+                yield Button("\\[Alt+G]enerate Summary", id="summary-btn", variant="primary")
+                yield Button("\\[Esc] Back", id="back-btn")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -384,8 +384,8 @@ class UnifiedScreen(Screen):
             self.current_speaker_index = 0
             if self._all_speakers_labeled():
                 self.notify(
-                    "All speakers labeled! Press [bold]S[/bold] to save or "
-                    "[bold]G[/bold] to save & summarize"
+                    "All speakers labeled! Press [bold]Alt+S[/bold] to save or "
+                    "[bold]Alt+G[/bold] to save & summarize"
                 )
 
         self.sample_count = 3
@@ -502,7 +502,7 @@ class UnifiedScreen(Screen):
             # Re-enable button
             summary_btn = self.query_one("#summary-btn", Button)
             summary_btn.disabled = False
-            summary_btn.label = "\\[G]enerate Summary"
+            summary_btn.label = "\\[Alt+G]enerate Summary"
 
     def action_refresh(self) -> None:
         """Refresh the file and transcript list."""
