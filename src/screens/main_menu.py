@@ -19,8 +19,7 @@ class MainMenuScreen(Screen):
         ("r", "toggle_recording", "Toggle Recording"),
         ("a", "toggle_auto_process", "Auto Process"),
         ("f", "show_files", "Files"),
-        ("l", "show_labeling", "Label"),
-        ("p", "process_all", "Process"),
+        ("p", "toggle_pause", "Pause/Resume"),
         ("c", "edit_config", "Config"),
         ("q", "quit", "Quit"),
     ]
@@ -42,12 +41,13 @@ class MainMenuScreen(Screen):
                 with Horizontal(id="recording-buttons"):
                     yield Button("Start Recording", id="start-btn", variant="success")
                     yield Button("Stop Recording", id="stop-btn", variant="error", disabled=True)
+                    yield Button("Pause", id="pause-btn", disabled=True)
 
             with Vertical(id="quick-actions"):
                 yield Label("Quick Actions", classes="section-title")
                 with Horizontal():
                     yield Button("\\[F]iles & Labels", id="files-btn", classes="action-button")
-                    yield Button("\\[P]rocess", id="process-btn", classes="action-button")
+                    yield Button("Process", id="process-btn", classes="action-button")
                     yield Button("\\[C]onfig", id="config-btn", classes="action-button")
                     yield Button("\\[Q]uit", id="quit-btn", classes="action-button", variant="error")
 
@@ -98,6 +98,7 @@ class MainMenuScreen(Screen):
         duration_label = self.query_one("#duration-label", Label)
         start_btn = self.query_one("#start-btn", Button)
         stop_btn = self.query_one("#stop-btn", Button)
+        pause_btn = self.query_one("#pause-btn", Button)
 
         if recorder.is_recording:
             self.is_recording = True
@@ -106,12 +107,15 @@ class MainMenuScreen(Screen):
             status_widget.add_class("recording")
             if recorder.is_paused:
                 status_label.update("Status: PAUSED")
+                pause_btn.label = "Resume"
             else:
                 status_label.update("Status: RECORDING")
+                pause_btn.label = "Pause"
             status_label.add_class("recording")
             duration_label.update(f"Duration: {self.duration}")
             start_btn.disabled = True
             stop_btn.disabled = False
+            pause_btn.disabled = False
         else:
             self.is_recording = False
             self.duration = "00:00:00"
@@ -122,6 +126,8 @@ class MainMenuScreen(Screen):
             duration_label.update("Duration: 00:00:00")
             start_btn.disabled = False
             stop_btn.disabled = True
+            pause_btn.disabled = True
+            pause_btn.label = "Pause"
 
     def _scan_for_new_files(self) -> None:
         """Scan watch directory for new audio files."""
@@ -168,6 +174,8 @@ class MainMenuScreen(Screen):
             self.action_start_recording()
         elif button_id == "stop-btn":
             self.action_stop_recording()
+        elif button_id == "pause-btn":
+            self.action_toggle_pause()
         elif button_id == "files-btn":
             self.action_show_files()
         elif button_id == "process-btn":
@@ -220,9 +228,18 @@ class MainMenuScreen(Screen):
         """Show files screen."""
         self.app.action_show_files()
 
-    def action_show_labeling(self) -> None:
-        """Show labeling screen."""
-        self.app.action_show_labeling()
+    def action_toggle_pause(self) -> None:
+        """Toggle pause/resume on the current recording."""
+        recorder = self.app.recorder
+        if not recorder.is_recording:
+            return
+        if recorder.is_paused:
+            recorder.resume()
+            self.notify("Recording resumed", severity="information")
+        else:
+            recorder.pause()
+            self.notify("Recording paused", severity="information")
+        self._update_recording_status()
 
     def action_process_all(self) -> None:
         """Process all pending recordings."""

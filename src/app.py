@@ -18,7 +18,6 @@ class TranscribeApp(App):
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("f", "show_files", "Files", show=True),
-        Binding("l", "show_labeling", "Label", show=True),
         Binding("r", "show_recording", "Record", show=True),
         Binding("escape", "go_back", "Back", show=False),
     ]
@@ -36,10 +35,6 @@ class TranscribeApp(App):
         self.push_screen(MainMenuScreen())
 
     def action_show_files(self) -> None:
-        """Show unified files & labels screen."""
-        self.push_screen(UnifiedScreen())
-
-    def action_show_labeling(self) -> None:
         """Show unified files & labels screen."""
         self.push_screen(UnifiedScreen())
 
