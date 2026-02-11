@@ -561,19 +561,20 @@ class UnifiedScreen(Screen):
         )
 
         self.run_worker(
-            self._generate_summary(auto_title),
+            functools.partial(self._generate_summary, auto_title),
             name="summarize",
             description=f"Summarizing {self.current_transcript_path.name}",
+            thread=True,
         )
 
-    async def _generate_summary(self, title: str) -> None:
-        """Generate summary (runs in async worker)."""
+    def _generate_summary(self, title: str) -> None:
+        """Generate summary (runs in worker thread)."""
         try:
             summarizer = Summarizer()
             output_dir = self.app.config.summaries_dir
 
             def progress(msg: str) -> None:
-                self.notify(msg, severity="information")
+                self.app.call_from_thread(self.notify, msg, severity="information")
 
             summary_path, generated_title = summarizer.summarize_and_save(
                 self.current_transcript_path,
@@ -582,7 +583,6 @@ class UnifiedScreen(Screen):
                 progress,
             )
 
-            # Update database
             self.app.db.mark_summarized(
                 str(self.current_transcript_path), str(summary_path)
             )
@@ -590,16 +590,21 @@ class UnifiedScreen(Screen):
                 str(self.current_transcript_path), generated_title
             )
 
-            self.notify(f"Summary saved: {summary_path.name}", severity="information")
-            self._refresh_table()
+            self.app.call_from_thread(
+                self.notify, f"Summary saved: {summary_path.name}", severity="information"
+            )
+            self.app.call_from_thread(self._refresh_table)
 
         except Exception as e:
-            self.notify(f"Summary failed: {e}", severity="error")
+            self.app.call_from_thread(
+                self.notify, f"Summary failed: {e}", severity="error"
+            )
         finally:
-            # Re-enable button
-            summary_btn = self.query_one("#summary-btn", Button)
-            summary_btn.disabled = False
-            summary_btn.label = "\\[Alt+G]enerate Summary"
+            def _restore_btn():
+                summary_btn = self.query_one("#summary-btn", Button)
+                summary_btn.disabled = False
+                summary_btn.label = "\\[Alt+G]enerate Summary"
+            self.app.call_from_thread(_restore_btn)
 
     def action_regenerate_summary(self) -> None:
         """Regenerate summary for a transcript that already has one."""
@@ -638,19 +643,20 @@ class UnifiedScreen(Screen):
         )
 
         self.run_worker(
-            self._regenerate_summary(auto_title),
+            functools.partial(self._regenerate_summary, auto_title),
             name="regenerate",
             description=f"Regenerating summary for {self.current_transcript_path.name}",
+            thread=True,
         )
 
-    async def _regenerate_summary(self, title: str) -> None:
-        """Regenerate summary (runs in async worker)."""
+    def _regenerate_summary(self, title: str) -> None:
+        """Regenerate summary (runs in worker thread)."""
         try:
             summarizer = Summarizer()
             output_dir = self.app.config.summaries_dir
 
             def progress(msg: str) -> None:
-                self.notify(msg, severity="information")
+                self.app.call_from_thread(self.notify, msg, severity="information")
 
             summary_path, generated_title = summarizer.summarize_and_save(
                 self.current_transcript_path,
@@ -666,15 +672,21 @@ class UnifiedScreen(Screen):
                 str(self.current_transcript_path), generated_title
             )
 
-            self.notify(f"Summary regenerated: {summary_path.name}", severity="information")
-            self._refresh_table()
+            self.app.call_from_thread(
+                self.notify, f"Summary regenerated: {summary_path.name}", severity="information"
+            )
+            self.app.call_from_thread(self._refresh_table)
 
         except Exception as e:
-            self.notify(f"Regeneration failed: {e}", severity="error")
+            self.app.call_from_thread(
+                self.notify, f"Regeneration failed: {e}", severity="error"
+            )
         finally:
-            regen_btn = self.query_one("#regen-btn", Button)
-            regen_btn.disabled = False
-            regen_btn.label = "\\[Alt+W] Regenerate"
+            def _restore_btn():
+                regen_btn = self.query_one("#regen-btn", Button)
+                regen_btn.disabled = False
+                regen_btn.label = "\\[Alt+W] Regenerate"
+            self.app.call_from_thread(_restore_btn)
 
     def action_refresh(self) -> None:
         """Refresh the file and transcript list."""
