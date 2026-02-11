@@ -1,5 +1,6 @@
 """Unified Files & Labels screen for Transcribe TUI."""
 
+import functools
 import re
 from pathlib import Path
 from threading import Timer
@@ -317,12 +318,13 @@ class UnifiedScreen(Screen):
         from ..core import Transcriber
 
         self.run_worker(
-            self._transcribe_file(audio_path, api_key),
+            functools.partial(self._transcribe_file, audio_path, api_key),
             name="transcribe",
             description=f"Transcribing {Path(audio_path).name}",
+            thread=True,
         )
 
-    async def _transcribe_file(self, path: str, api_key: str) -> None:
+    def _transcribe_file(self, path: str, api_key: str) -> None:
         """Transcribe a file (runs in worker thread)."""
         from ..core import Transcriber
 

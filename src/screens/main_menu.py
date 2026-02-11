@@ -1,5 +1,6 @@
 """Main menu screen for Transcribe TUI."""
 
+import functools
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -164,7 +165,12 @@ class MainMenuScreen(Screen):
 
         pending = app.db.get_pending_audio_files()
         if pending:
-            self.run_worker(self._process_files(pending), name="auto_process", exclusive=True)
+            self.run_worker(
+                functools.partial(self._process_files, pending),
+                name="auto_process",
+                exclusive=True,
+                thread=True,
+            )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
@@ -251,15 +257,24 @@ class MainMenuScreen(Screen):
             return
 
         self.notify(f"Processing {len(pending)} file(s)...", severity="information")
-        self.run_worker(self._process_files(pending), name="process_files", exclusive=True)
+        self.run_worker(
+            functools.partial(self._process_files, pending),
+            name="process_files",
+            exclusive=True,
+            thread=True,
+        )
 
-    async def _process_files(self, files: list) -> None:
+    def _process_files(self, files: list) -> None:
         """Background worker to process files."""
         app = self.app
         api_key = app.config.get_api_key()
 
         if not api_key:
-            self.notify("No API key configured. Set assemblyai_api_key in config.", severity="error")
+            self.app.call_from_thread(
+                self.notify,
+                "No API key configured. Set assemblyai_api_key in config.",
+                severity="error",
+            )
             return
 
         transcriber = Transcriber(api_key)
@@ -268,13 +283,15 @@ class MainMenuScreen(Screen):
         processed = 0
         for audio in files:
             try:
-                self.notify(f"Transcribing: {audio.filename}", severity="information")
+                self.app.call_from_thread(
+                    self.notify, f"Transcribing: {audio.filename}", severity="information"
+                )
 
                 # Transcribe and save
                 transcript_path = transcriber.transcribe_and_save(
                     audio.path,
                     output_dir,
-                    progress_callback=lambda msg: self.notify(msg),
+                    progress_callback=lambda msg: self.app.call_from_thread(self.notify, msg),
                 )
 
                 # Update database
@@ -284,15 +301,23 @@ class MainMenuScreen(Screen):
                     app.db.add_transcript(str(transcript_path), audio_id)
 
                 processed += 1
-                self.notify(f"Completed: {audio.filename}", severity="information")
+                self.app.call_from_thread(
+                    self.notify, f"Completed: {audio.filename}", severity="information"
+                )
 
             except TranscriptionError as e:
-                self.notify(f"Error transcribing {audio.filename}: {e}", severity="error")
+                self.app.call_from_thread(
+                    self.notify, f"Error transcribing {audio.filename}: {e}", severity="error"
+                )
             except Exception as e:
-                self.notify(f"Unexpected error: {e}", severity="error")
+                self.app.call_from_thread(
+                    self.notify, f"Unexpected error: {e}", severity="error"
+                )
 
-        self._update_status()
-        self.notify(f"Processed {processed}/{len(files)} file(s)", severity="information")
+        self.app.call_from_thread(self._update_status)
+        self.app.call_from_thread(
+            self.notify, f"Processed {processed}/{len(files)} file(s)", severity="information"
+        )
 
     def action_edit_config(self) -> None:
         """Edit configuration."""
