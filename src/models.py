@@ -109,15 +109,12 @@ class TranscriptData:
     speakers: list[Speaker]
     utterances: list[Utterance]
 
-    def get_speaker_samples(self, speaker_id: str, num_samples: int = 3) -> list[str]:
-        """Get sample utterances for a speaker."""
-        samples = []
-        for utt in self.utterances:
-            if utt.speaker == speaker_id:
-                samples.append(utt.text)
-                if len(samples) >= num_samples:
-                    break
-        return samples
+    def get_speaker_samples(
+        self, speaker_id: str, num_samples: int = 3, offset: int = 0
+    ) -> list[str]:
+        """Get sample utterances for a speaker starting from offset."""
+        all_samples = [utt.text for utt in self.utterances if utt.speaker == speaker_id]
+        return all_samples[offset : offset + num_samples]
 
     def get_speaker_by_id(self, speaker_id: str) -> Speaker | None:
         """Get a speaker by their ID."""

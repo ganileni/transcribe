@@ -41,7 +41,7 @@ class UnifiedScreen(Screen):
         self.current_transcript: TranscriptData | None = None
         self.current_transcript_path: Path | None = None
         self.current_speaker_index: int = 0
-        self.sample_count: int = 3
+        self.sample_offset: int = 0
         self._delete_pending_path: str | None = None
         self._delete_timer: Timer | None = None
 
@@ -196,7 +196,7 @@ class UnifiedScreen(Screen):
             self.current_transcript = TranscriptData.load(path)
             self.current_transcript_path = path
             self.current_speaker_index = 0
-            self.sample_count = 3
+            self.sample_offset = 0
             self._show_current_speaker()
 
             name_label = self.query_one("#transcript-name", Label)
@@ -222,7 +222,9 @@ class UnifiedScreen(Screen):
         )
 
         # Get and display samples
-        samples = self.current_transcript.get_speaker_samples(speaker.id, self.sample_count)
+        samples = self.current_transcript.get_speaker_samples(
+            speaker.id, num_samples=3, offset=self.sample_offset
+        )
         samples_content = self.query_one("#samples-content", Static)
 
         if samples:
@@ -424,7 +426,7 @@ class UnifiedScreen(Screen):
                     "[bold]Alt+G[/bold] to save & summarize"
                 )
 
-        self.sample_count = 3
+        self.sample_offset = 0
         self._show_current_speaker()
 
     def action_prev_speaker(self) -> None:
@@ -436,15 +438,15 @@ class UnifiedScreen(Screen):
         self.current_speaker_index -= 1
         if self.current_speaker_index < 0:
             self.current_speaker_index = len(self.current_transcript.speakers) - 1
-        self.sample_count = 3
+        self.sample_offset = 0
         self._show_current_speaker()
 
     def action_more_samples(self) -> None:
-        """Show more sample utterances."""
+        """Show next page of sample utterances."""
         if not self.current_transcript:
             return
 
-        self.sample_count += 3
+        self.sample_offset += 3
         self._show_current_speaker()
 
     def _build_speaker_rename_map(self) -> dict[str, str]:
