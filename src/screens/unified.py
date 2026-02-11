@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Timer
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.coordinate import Coordinate
 from textual.screen import Screen
@@ -19,16 +20,16 @@ class UnifiedScreen(Screen):
     """Unified screen combining audio files and transcripts with all commands."""
 
     BINDINGS = [
-        ("alt+t", "transcribe_selected", "Transcribe"),
-        ("alt+d", "delete_selected", "Delete"),
-        ("alt+r", "refresh", "Refresh"),
-        ("alt+o", "open_folder", "Open Folder"),
-        ("alt+n", "next_speaker", "Next Speaker"),
-        ("alt+p", "prev_speaker", "Previous Speaker"),
-        ("alt+m", "more_samples", "More Samples"),
-        ("alt+s", "save_labels", "Save"),
-        ("alt+g", "generate_summary", "Generate Summary"),
-        ("alt+w", "regenerate_summary", "Regenerate Summary"),
+        Binding("alt+t", "transcribe_selected", "Transcribe", priority=True),
+        Binding("alt+d", "delete_selected", "Delete", priority=True),
+        Binding("alt+r", "refresh", "Refresh", priority=True),
+        Binding("alt+o", "open_folder", "Open Folder", priority=True),
+        Binding("alt+n", "next_speaker", "Next Speaker", priority=True),
+        Binding("alt+p", "prev_speaker", "Previous Speaker", priority=True),
+        Binding("alt+m", "more_samples", "More Samples", priority=True),
+        Binding("alt+s", "save_labels", "Save", priority=True),
+        Binding("alt+g", "generate_summary", "Generate Summary", priority=True),
+        Binding("alt+w", "regenerate_summary", "Regenerate Summary", priority=True),
         ("escape", "go_back", "Back"),
     ]
 
