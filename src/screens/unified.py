@@ -7,9 +7,10 @@ from threading import Timer
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.containers import Container, Vertical, VerticalScroll
 from textual.coordinate import Coordinate
 from textual.screen import Screen
+from textual.events import Resize
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from ..core import Summarizer
@@ -69,7 +70,8 @@ class UnifiedScreen(Screen):
                 yield Label("Name:")
                 yield Input(placeholder="Enter speaker name", id="speaker-input")
 
-            with Horizontal(id="unified-actions"):
+            yield Static("Terminal too small (min 100x24)", id="size-warning")
+            with Container(id="unified-actions"):
                 yield Button("\\[Alt+T]ranscribe", id="transcribe-btn", variant="primary")
                 yield Button("\\[Alt+D]elete", id="delete-btn", variant="error")
                 yield Button("\\[Alt+R]efresh", id="refresh-btn")
@@ -85,6 +87,7 @@ class UnifiedScreen(Screen):
 
     def on_mount(self) -> None:
         """Called when screen is mounted."""
+        self.query_one("#size-warning", Static).display = False
         table = self.query_one("#unified-table", DataTable)
         table.add_columns("Name", "Filename", "Stage", "Speakers", "Date", "Duration")
         table.cursor_type = "row"
@@ -696,6 +699,12 @@ class UnifiedScreen(Screen):
                 regen_btn.disabled = False
                 regen_btn.label = "\\[Alt+W] Regenerate"
             self.app.call_from_thread(_restore_btn)
+
+    def on_resize(self, event: Resize) -> None:
+        """Show warning and hide content when terminal is too small."""
+        too_small = event.size.width < 100 or event.size.height < 24
+        self.query_one("#size-warning", Static).display = too_small
+        self.query_one("#unified-container", Container).display = not too_small
 
     def action_refresh(self) -> None:
         """Refresh the file and transcript list."""
