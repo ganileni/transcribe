@@ -132,10 +132,11 @@ class Recorder:
         # Generate filename
         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         filename = f"recording-{timestamp}.mp4"
-        output_file = self.output_dir / filename
+        temp_dir = self.output_dir / ".recording"
+        output_file = temp_dir / filename
 
-        # Ensure output directory exists
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure temp recording directory exists
+        temp_dir.mkdir(parents=True, exist_ok=True)
 
         # Detect audio sources
         mic_source, sys_source = self._detect_audio_sources()
@@ -228,11 +229,15 @@ class Recorder:
                 f.unlink()
 
         if output_file and output_file.exists():
-            size = output_file.stat().st_size
+            # Move from .recording/ temp dir to the watch dir (atomic rename)
+            final_file = self.output_dir / output_file.name
+            output_file.rename(final_file)
+
+            size = final_file.stat().st_size
             size_str = self._format_size(size)
             if progress_callback:
-                progress_callback(f"Recording saved: {output_file.name} ({size_str})")
-            return output_file
+                progress_callback(f"Recording saved: {final_file.name} ({size_str})")
+            return final_file
 
         if progress_callback:
             progress_callback("Warning: Recording file not found")
