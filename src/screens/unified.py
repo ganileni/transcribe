@@ -442,11 +442,18 @@ class UnifiedScreen(Screen):
         self._show_current_speaker()
 
     def action_more_samples(self) -> None:
-        """Show next page of sample utterances."""
+        """Show next page of sample utterances, wrapping when exhausted."""
         if not self.current_transcript:
             return
 
+        speaker = self.current_transcript.speakers[self.current_speaker_index]
         self.sample_offset += 3
+        samples = self.current_transcript.get_speaker_samples(
+            speaker.id, num_samples=3, offset=self.sample_offset
+        )
+        if not samples:
+            self.sample_offset = 0
+            self.notify("Wrapped to first samples")
         self._show_current_speaker()
 
     def _build_speaker_rename_map(self) -> dict[str, str]:
