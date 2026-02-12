@@ -32,6 +32,8 @@ class UnifiedScreen(Screen):
         Binding("alt+s", "save_labels", "Save", priority=True),
         Binding("alt+g", "generate_summary", "Generate Summary", priority=True),
         Binding("alt+w", "regenerate_summary", "Regenerate Summary", priority=True),
+        Binding("alt+c", "copy_path", "Copy Path", priority=True),
+        Binding("alt+f", "show_in_files", "Show in Files", priority=True),
         ("escape", "go_back", "Back"),
     ]
 
@@ -174,6 +176,20 @@ class UnifiedScreen(Screen):
             if item_key == key:
                 return item
         return None
+
+    def _get_primary_file_path(self, item: dict) -> tuple[Path | None, str]:
+        """Get the primary file path for an item (summary > transcript > audio).
+
+        Returns (path, description) where description is 'summary', 'transcript', or 'audio'.
+        """
+        # Priority: summary (most useful) > transcript > audio
+        if item.get("summary_path"):
+            return Path(item["summary_path"]), "summary"
+        elif item.get("transcript_path"):
+            return Path(item["transcript_path"]), "transcript"
+        elif item.get("audio_path"):
+            return Path(item["audio_path"]), "audio"
+        return None, ""
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle row selection."""
@@ -413,6 +429,58 @@ class UnifiedScreen(Screen):
             self.notify(f"Opening: {watch_dir}")
         else:
             self.notify("Watch directory does not exist", severity="warning")
+
+    def action_copy_path(self) -> None:
+        """Copy the selected file path to clipboard."""
+        import subprocess
+
+        item = self._get_selected_item()
+        if not item:
+            self.notify("No item selected", severity="warning")
+            return
+
+        file_path, file_type = self._get_primary_file_path(item)
+        if not file_path:
+            self.notify("No file available for this item", severity="warning")
+            return
+
+        try:
+            subprocess.run(
+                ["xclip", "-selection", "clipboard"],
+                input=str(file_path).encode(),
+                check=True,
+            )
+            self.notify(f"Copied {file_type} path: {file_path.name}")
+        except FileNotFoundError:
+            self.notify("xclip not installed. Install with: sudo apt install xclip", severity="error")
+        except subprocess.CalledProcessError as e:
+            self.notify(f"Failed to copy: {e}", severity="error")
+
+    def action_show_in_files(self) -> None:
+        """Open file manager with the selected file highlighted."""
+        import subprocess
+
+        item = self._get_selected_item()
+        if not item:
+            self.notify("No item selected", severity="warning")
+            return
+
+        file_path, file_type = self._get_primary_file_path(item)
+        if not file_path:
+            self.notify("No file available for this item", severity="warning")
+            return
+
+        if not file_path.exists():
+            self.notify(f"File does not exist: {file_path.name}", severity="warning")
+            return
+
+        try:
+            subprocess.Popen(["nautilus", "--select", str(file_path)])
+            self.notify(f"Opening {file_type}: {file_path.name}")
+        except FileNotFoundError:
+            # Fallback to opening parent directory if nautilus not available
+            subprocess.Popen(["xdg-open", str(file_path.parent)])
+            self.notify(f"Opening directory: {file_path.parent}")
 
     # Speaker labeling actions
 
