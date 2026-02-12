@@ -12,6 +12,7 @@ from textual.coordinate import Coordinate
 from textual.screen import Screen
 from textual.events import Resize
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
+from textual.worker import Worker
 
 from ..core import Summarizer
 from ..models import TranscriptData
@@ -70,6 +71,7 @@ class UnifiedScreen(Screen):
                 yield Label("Name:")
                 yield Input(placeholder="Enter speaker name", id="speaker-input")
 
+            yield Static("", id="worker-status")
             yield Static("Terminal too small (min 100x24)", id="size-warning")
             with Container(id="unified-actions"):
                 yield Button("\\[Alt+T]ranscribe", id="transcribe-btn", variant="primary")
@@ -88,6 +90,7 @@ class UnifiedScreen(Screen):
     def on_mount(self) -> None:
         """Called when screen is mounted."""
         self.query_one("#size-warning", Static).display = False
+        self.query_one("#worker-status", Static).display = False
         table = self.query_one("#unified-table", DataTable)
         table.add_columns("Name", "Filename", "Stage", "Speakers", "Date", "Duration")
         table.cursor_type = "row"
@@ -705,6 +708,23 @@ class UnifiedScreen(Screen):
         too_small = event.size.width < 100 or event.size.height < 24
         self.query_one("#size-warning", Static).display = too_small
         self.query_one("#unified-container", Container).display = not too_small
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        """Update worker status display when workers change state."""
+        self._update_worker_display()
+
+    def _update_worker_display(self) -> None:
+        """Update the worker status widget with active workers."""
+        active = [w for w in self.workers if w.is_running]
+        status_widget = self.query_one("#worker-status", Static)
+
+        if active:
+            descriptions = ", ".join(w.description for w in active)
+            status_widget.update(f"Running: {descriptions}")
+            status_widget.display = True
+        else:
+            status_widget.update("")
+            status_widget.display = False
 
     def action_refresh(self) -> None:
         """Refresh the file and transcript list."""

@@ -224,3 +224,12 @@ LoadingIndicator {
     color: $error;
     padding: 2;
 }
+
+#worker-status {
+    width: 100%;
+    height: auto;
+    border: solid $primary;
+    padding: 0 1;
+    margin-bottom: 0;
+    background: $surface;
+}
