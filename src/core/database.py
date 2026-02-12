@@ -49,10 +49,10 @@ class Database:
         self._conn: sqlite3.Connection | None = None
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get or create database connection."""
+        """Get or create database connection with autocommit mode."""
         if self._conn is None:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._conn = sqlite3.connect(str(self.db_path))
+            self._conn = sqlite3.connect(str(self.db_path), isolation_level=None)
             self._conn.row_factory = sqlite3.Row
         return self._conn
 
